@@ -32,7 +32,7 @@ waitForPort = 5000
 
 [deployment]
 deploymentTarget = "cloudrun"
-run = ["sh", "-c", "npm run start"]
+run = ["sh", "-c", "node dist/src/server.js"]
 
 [[ports]]
 localPort = 5000
