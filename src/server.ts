@@ -84,6 +84,21 @@ async function main() {
         }
 
         let result;
+        let operationCost = 0;
+
+        // Define standard pricing for transparency
+        const PRICING = {
+          create_agent: 0.05,
+          list_agents: 0.001,
+          get_agent: 0.001,
+          update_agent: 0.02,
+          delete_agent: 0.01,
+          prompt_agent: 0.01, // Base cost, actual cost varies by tokens
+          add_user_to_agent: 0.005,
+          remove_user_from_agent: 0.005,
+          get_usage_report: 0.002,
+          get_pricing: 0.001
+        };
 
         // Handle tool calls
         switch (name) {
@@ -98,7 +113,8 @@ async function main() {
               isPublic: (args as any).isPublic,
               isShareable: (args as any).isShareable,
             });
-            await paymentManager.recordUsage((args as any).userId, "create_agent", 0.05);
+            operationCost = PRICING.create_agent;
+            await paymentManager.recordUsage((args as any).userId, "create_agent", operationCost);
             result = {
               success: true,
               agent: {
@@ -109,13 +125,16 @@ async function main() {
                 isPublic: agent.isPublic,
                 isShareable: agent.isShareable,
                 createdAt: agent.createdAt,
-              }
+              },
+              cost: operationCost,
+              operation: "create_agent"
             };
             break;
 
           case "list_agents":
             const agents = await agentService.listAgents((args as any).userId, (args as any).limit);
-            await paymentManager.recordUsage((args as any).userId, "list_agents", 0.001);
+            operationCost = PRICING.list_agents;
+            await paymentManager.recordUsage((args as any).userId, "list_agents", operationCost);
             result = {
               success: true,
               agents: agents.map(agent => ({
@@ -129,7 +148,9 @@ async function main() {
                 createdAt: agent.createdAt,
                 updatedAt: agent.updatedAt,
               })),
-              total: agents.length
+              total: agents.length,
+              cost: operationCost,
+              operation: "list_agents"
             };
             break;
 
@@ -138,10 +159,13 @@ async function main() {
             if (!agentDetails) {
               throw new McpError(ErrorCode.InvalidParams, `Agent ${(args as any).agentId} not found or access denied`);
             }
-            await paymentManager.recordUsage((args as any).userId, "get_agent", 0.001);
+            operationCost = PRICING.get_agent;
+            await paymentManager.recordUsage((args as any).userId, "get_agent", operationCost);
             result = {
               success: true,
-              agent: agentDetails
+              agent: agentDetails,
+              cost: operationCost,
+              operation: "get_agent"
             };
             break;
 
@@ -154,10 +178,13 @@ async function main() {
               isPublic: (args as any).isPublic,
               isShareable: (args as any).isShareable,
             });
-            await paymentManager.recordUsage((args as any).userId, "update_agent", 0.02);
+            operationCost = PRICING.update_agent;
+            await paymentManager.recordUsage((args as any).userId, "update_agent", operationCost);
             result = {
               success: true,
-              agent: updatedAgent
+              agent: updatedAgent,
+              cost: operationCost,
+              operation: "update_agent"
             };
             break;
 
@@ -166,10 +193,13 @@ async function main() {
             if (!deleted) {
               throw new McpError(ErrorCode.InvalidParams, `Agent ${(args as any).agentId} not found or access denied`);
             }
-            await paymentManager.recordUsage((args as any).userId, "delete_agent", 0.01);
+            operationCost = PRICING.delete_agent;
+            await paymentManager.recordUsage((args as any).userId, "delete_agent", operationCost);
             result = {
               success: true,
-              message: `Agent ${(args as any).agentId} deleted successfully`
+              message: `Agent ${(args as any).agentId} deleted successfully`,
+              cost: operationCost,
+              operation: "delete_agent"
             };
             break;
 
@@ -179,12 +209,14 @@ async function main() {
               userId: (args as any).userId,
               message: (args as any).message,
             });
-            await paymentManager.recordUsage((args as any).userId, "prompt_agent", response.cost);
+            operationCost = response.cost; // Actual cost from AI service
+            await paymentManager.recordUsage((args as any).userId, "prompt_agent", operationCost);
             result = {
               success: true,
               response: response.response,
               tokensUsed: response.tokensUsed,
-              cost: response.cost
+              cost: operationCost,
+              operation: "prompt_agent"
             };
             break;
 
@@ -194,12 +226,15 @@ async function main() {
               (args as any).userEmail, 
               (args as any).ownerId
             );
-            await paymentManager.recordUsage((args as any).ownerId, "add_user_to_agent", 0.005);
+            operationCost = PRICING.add_user_to_agent;
+            await paymentManager.recordUsage((args as any).ownerId, "add_user_to_agent", operationCost);
             result = {
               success: true,
               message: accessGranted ? 
                 `Access granted to ${(args as any).userEmail}` : 
-                `User ${(args as any).userEmail} already has access`
+                `User ${(args as any).userEmail} already has access`,
+              cost: operationCost,
+              operation: "add_user_to_agent"
             };
             break;
 
@@ -209,27 +244,37 @@ async function main() {
               (args as any).userEmail, 
               (args as any).ownerId
             );
-            await paymentManager.recordUsage((args as any).ownerId, "remove_user_from_agent", 0.005);
+            operationCost = PRICING.remove_user_from_agent;
+            await paymentManager.recordUsage((args as any).ownerId, "remove_user_from_agent", operationCost);
             result = {
               success: true,
-              message: `Access removed for ${(args as any).userEmail}`
+              message: `Access removed for ${(args as any).userEmail}`,
+              cost: operationCost,
+              operation: "remove_user_from_agent"
             };
             break;
 
           case "get_usage_report":
             const usageReport = await agentService.getUsageReport((args as any).userId, (args as any).days);
-            await paymentManager.recordUsage((args as any).userId, "get_usage_report", 0.002);
+            operationCost = PRICING.get_usage_report;
+            await paymentManager.recordUsage((args as any).userId, "get_usage_report", operationCost);
             result = {
               success: true,
-              report: usageReport
+              report: usageReport,
+              cost: operationCost,
+              operation: "get_usage_report"
             };
             break;
 
           case "get_pricing":
             const pricing = await agentService.getPricing();
+            operationCost = PRICING.get_pricing;
+            await paymentManager.recordUsage((args as any).userId || 'anonymous', "get_pricing", operationCost);
             result = {
               success: true,
-              pricing
+              pricing,
+              cost: operationCost,
+              operation: "get_pricing"
             };
             break;
 
