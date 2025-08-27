@@ -39,6 +39,177 @@ async function main() {
       });
     });
 
+    // MCP HTTP Endpoints for developers
+    app.get('/tools', (req, res) => {
+      const tools = createAgentTools(agentService, paymentManager);
+      res.json({
+        tools: tools.map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema
+        }))
+      });
+    });
+
+    app.get('/pricing', async (req, res) => {
+      try {
+        const pricing = await agentService.getPricing();
+        res.json(pricing);
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to get pricing', message: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    });
+
+    app.post('/mcp/call', express.json(), async (req, res) => {
+      try {
+        const { tool, arguments: args } = req.body;
+        
+        if (!tool) {
+          return res.status(400).json({ error: 'Missing tool parameter' });
+        }
+
+        // Validate arguments using the same validation as MCP
+        validateToolArguments(tool, args);
+
+        // Validate payment for this operation
+        const userId = args?.userId || args?.ownerId;
+        if (userId && !(await paymentManager.validatePayment(userId, tool))) {
+          return res.status(402).json({
+            error: 'Payment validation failed',
+            message: `Payment validation failed for ${tool}. Please check your account status or subscription.`
+          });
+        }
+
+        let result;
+        let operationCost = 0;
+
+        // Define standard pricing for transparency
+        const PRICING = {
+          create_agent: 0.05,
+          list_agents: 0.001,
+          get_agent: 0.001,
+          update_agent: 0.02,
+          delete_agent: 0.01,
+          prompt_agent: 0.01, // Base cost, actual cost varies by tokens
+          add_user_to_agent: 0.005,
+          remove_user_from_agent: 0.005,
+          get_usage_report: 0.002,
+          get_pricing: 0.001
+        };
+
+        // Handle tool calls (same logic as MCP)
+        switch (tool) {
+          case "create_agent":
+            const agent = await agentService.createAgent({
+              name: args.name,
+              description: args.description,
+              instructions: args.instructions,
+              userId: args.userId,
+              organizationId: args.organizationId,
+              type: args.type,
+              isPublic: args.isPublic,
+              isShareable: args.isShareable,
+            });
+            operationCost = PRICING.create_agent;
+            await paymentManager.recordUsage(args.userId, "create_agent", operationCost);
+            result = {
+              success: true,
+              agent: {
+                id: agent.id,
+                name: agent.name,
+                description: agent.description,
+                type: agent.type,
+                isPublic: agent.isPublic,
+                isShareable: agent.isShareable,
+                createdAt: agent.createdAt,
+              },
+              cost: operationCost,
+              operation: "create_agent"
+            };
+            break;
+
+          case "list_agents":
+            const agents = await agentService.listAgents(args.userId, args.limit);
+            operationCost = PRICING.list_agents;
+            await paymentManager.recordUsage(args.userId, "list_agents", operationCost);
+            result = {
+              success: true,
+              agents: agents.map(agent => ({
+                id: agent.id,
+                name: agent.name,
+                description: agent.description,
+                type: agent.type,
+                isPublic: agent.isPublic,
+                isShareable: agent.isShareable,
+                ownerId: agent.ownerId,
+                createdAt: agent.createdAt,
+                updatedAt: agent.updatedAt,
+              })),
+              total: agents.length,
+              cost: operationCost,
+              operation: "list_agents"
+            };
+            break;
+
+          case "get_agent":
+            const agentDetails = await agentService.getAgent(args.agentId, args.userId);
+            if (!agentDetails) {
+              return res.status(404).json({ error: `Agent ${args.agentId} not found or access denied` });
+            }
+            operationCost = PRICING.get_agent;
+            await paymentManager.recordUsage(args.userId, "get_agent", operationCost);
+            result = {
+              success: true,
+              agent: agentDetails,
+              cost: operationCost,
+              operation: "get_agent"
+            };
+            break;
+
+          case "prompt_agent":
+            const response = await agentService.promptAgent({
+              agentId: args.agentId,
+              userId: args.userId,
+              message: args.message,
+            });
+            operationCost = response.cost;
+            await paymentManager.recordUsage(args.userId, "prompt_agent", operationCost);
+            result = {
+              success: true,
+              response: response.response,
+              tokensUsed: response.tokensUsed,
+              cost: operationCost,
+              operation: "prompt_agent"
+            };
+            break;
+
+          case "get_pricing":
+            const pricing = await agentService.getPricing();
+            operationCost = PRICING.get_pricing;
+            await paymentManager.recordUsage(args.userId || 'anonymous', "get_pricing", operationCost);
+            result = {
+              success: true,
+              pricing,
+              cost: operationCost,
+              operation: "get_pricing"
+            };
+            break;
+
+          default:
+            return res.status(400).json({ error: `Unknown tool: ${tool}` });
+        }
+
+        res.json(result);
+
+      } catch (error) {
+        console.error(`❌ Error executing HTTP tool ${req.body.tool}:`, error);
+        res.status(500).json({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
     // Start HTTP server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🌐 HTTP server listening on port ${PORT}`);
