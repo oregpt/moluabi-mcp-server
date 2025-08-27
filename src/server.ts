@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import express from "express";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { 
@@ -23,6 +24,25 @@ async function main() {
   try {
     // Initialize payment system
     await paymentManager.initialize();
+
+    // Create HTTP server for health checks
+    const app = express();
+    const PORT = parseInt(process.env.PORT || '5000', 10);
+
+    // Health check endpoint
+    app.get('/', (req, res) => {
+      res.json({
+        status: 'healthy',
+        service: 'MoluAbi MCP Server',
+        version: '1.0.0',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Start HTTP server
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🌐 HTTP server listening on port ${PORT}`);
+    });
 
     // Create MCP server
     const server = new Server(

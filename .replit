@@ -22,12 +22,17 @@ args = "MCP Server"
 name = "MCP Server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "tsx src/server.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
+args = "node dist/src/server.js"
+waitForPort = 5000
 
 [deployment]
 deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
