@@ -1,0 +1,82 @@
+🧪 Practical MCP Tool Testing
+==============================
+
+🚀 Starting Practical MCP Tool Tests...
+
+💸 Payment mode: FREE TIER (no payment required)
+💸 Payment Provider: NoPaymentProvider initialized successfully
+✅ Services initialized
+
+🔨 Creating Test Agent...
+✅ Created agent: Test Marketing Agent (ID: 7)
+✅ Create Agent: SUCCESS
+   📝 Created agent "Test Marketing Agent" with ID: 7
+
+📊 [FREE] Usage recorded: create_agent for user test-user-456 (cost would be $0.0500)
+📊 Recorded usage: create_agent for user test-user-456, cost: $0.0500
+📋 Listing User's Agents...
+✅ List Agents: SUCCESS
+   📝 Found 3 agents
+
+📊 [FREE] Usage recorded: list_agents for user test-user-456 (cost would be $0.0010)
+📊 Recorded usage: list_agents for user test-user-456, cost: $0.0010
+🔍 Getting Agent Details...
+✅ Get Agent: SUCCESS
+   📝 Retrieved agent: Test Marketing Agent
+
+📊 [FREE] Usage recorded: get_agent for user test-user-456 (cost would be $0.0010)
+📊 Recorded usage: get_agent for user test-user-456, cost: $0.0010
+✏️ Updating Agent...
+✅ Updated agent: Updated Marketing Pro Agent (ID: 7)
+✅ Update Agent: SUCCESS
+   📝 Updated agent name to: Updated Marketing Pro Agent
+
+📊 [FREE] Usage recorded: update_agent for user test-user-456 (cost would be $0.0200)
+📊 Recorded usage: update_agent for user test-user-456, cost: $0.0200
+💬 Prompting Agent...
+✅ Prompt Agent: SUCCESS
+   📝 Agent responded: "Based on my instructions as Updated Marketing Pro Agent, I can help you with that. Create a catchy t..."
+
+📊 [FREE] Usage recorded: prompt_agent for user test-user-456 (cost would be $0.0100)
+📊 Recorded usage: prompt_agent for user test-user-456, cost: $0.0100
+👥 Adding User to Agent...
+❌ Add User to Agent: FAILED
+   📝 User with email test-user-789 not found
+
+📊 Getting Usage Report...
+✅ Get Usage Report: SUCCESS
+   📝 Total cost: $0.0000, Records: 0
+
+📊 [FREE] Usage recorded: get_usage_report for user test-user-456 (cost would be $0.0020)
+📊 Recorded usage: get_usage_report for user test-user-456, cost: $0.0020
+💰 Getting Pricing Info...
+✅ Get Pricing: SUCCESS
+   📝 Pricing information retrieved
+
+📊 [FREE] Usage recorded: get_pricing for user test-user-456 (cost would be $0.0010)
+📊 Recorded usage: get_pricing for user test-user-456, cost: $0.0010
+🗑️ Deleting Test Agent...
+🗑️ Deleted agent: Updated Marketing Pro Agent (ID: 7)
+✅ Delete Agent: SUCCESS
+   📝 Agent deleted successfully
+
+📊 [FREE] Usage recorded: delete_agent for user test-user-456 (cost would be $0.0100)
+📊 Recorded usage: delete_agent for user test-user-456, cost: $0.0100
+=====================================
+🎯 PRACTICAL TEST RESULTS SUMMARY
+=====================================
+✅ Successful: 8
+❌ Failed: 1
+📊 Total: 9
+
+📋 Test Details:
+   ✅ Create Agent: SUCCESS
+   ✅ List Agents: SUCCESS
+   ✅ Get Agent: SUCCESS
+   ✅ Update Agent: SUCCESS
+   ✅ Prompt Agent: SUCCESS
+   ❌ Add User to Agent: FAILED
+      User with email test-user-789 not found
+   ✅ Get Usage Report: SUCCESS
+   ✅ Get Pricing: SUCCESS
+   ✅ Delete Agent: SUCCESS

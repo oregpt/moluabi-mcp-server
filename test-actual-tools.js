@@ -3,6 +3,111 @@
 /**
  * Practical MCP Tool Test - Actually runs each tool call
  * Creates real agents, interacts with them, and tests all functionality
+ * 
+ * IMPORTANT: All tool responses now include cost transparency!
+ * Every MCP tool call returns:
+ * - success: boolean
+ * - [tool-specific data]
+ * - cost: number (in USD)
+ * - operation: string (operation name)
+ * 
+ * EXAMPLE RESPONSES WITH PRICING:
+ * 
+ * CREATE_AGENT Response:
+ * {
+ *   "success": true,
+ *   "agent": {
+ *     "id": 123,
+ *     "name": "Marketing Assistant",
+ *     "description": "Helps with marketing tasks",
+ *     "type": "chat-based",
+ *     "isPublic": false,
+ *     "isShareable": true,
+ *     "createdAt": "2024-01-15T10:30:00Z"
+ *   },
+ *   "cost": 0.05,
+ *   "operation": "create_agent"
+ * }
+ * 
+ * LIST_AGENTS Response:
+ * {
+ *   "success": true,
+ *   "agents": [
+ *     {
+ *       "id": 123,
+ *       "name": "Marketing Assistant",
+ *       "description": "Helps with marketing tasks",
+ *       "type": "chat-based",
+ *       "isPublic": false,
+ *       "isShareable": true,
+ *       "ownerId": "user-456",
+ *       "createdAt": "2024-01-15T10:30:00Z",
+ *       "updatedAt": "2024-01-15T10:30:00Z"
+ *     }
+ *   ],
+ *   "total": 1,
+ *   "cost": 0.001,
+ *   "operation": "list_agents"
+ * }
+ * 
+ * PROMPT_AGENT Response:
+ * {
+ *   "success": true,
+ *   "response": "Here's a catchy tagline for your eco-friendly water bottle: 'Pure hydration, planet protection!'",
+ *   "tokensUsed": 25,
+ *   "cost": 0.01,
+ *   "operation": "prompt_agent"
+ * }
+ * 
+ * UPDATE_AGENT Response:
+ * {
+ *   "success": true,
+ *   "agent": {
+ *     "id": 123,
+ *     "name": "Advanced Marketing Pro",
+ *     "description": "Enhanced marketing capabilities",
+ *     "instructions": "Expert marketing assistant...",
+ *     "type": "chat-based",
+ *     "isPublic": false,
+ *     "isShareable": true,
+ *     "updatedAt": "2024-01-15T11:00:00Z"
+ *   },
+ *   "cost": 0.02,
+ *   "operation": "update_agent"
+ * }
+ * 
+ * DELETE_AGENT Response:
+ * {
+ *   "success": true,
+ *   "message": "Agent 123 deleted successfully",
+ *   "cost": 0.01,
+ *   "operation": "delete_agent"
+ * }
+ * 
+ * GET_USAGE_REPORT Response:
+ * {
+ *   "success": true,
+ *   "report": {
+ *     "totalCost": 0.0820,
+ *     "totalInteractions": 15,
+ *     "dailyBreakdown": [...],
+ *     "operationCounts": {...}
+ *   },
+ *   "cost": 0.002,
+ *   "operation": "get_usage_report"
+ * }
+ * 
+ * STANDARD PRICING (as of latest test):
+ * - create_agent: $0.05
+ * - update_agent: $0.02  
+ * - delete_agent: $0.01
+ * - prompt_agent: Variable (based on AI tokens used, minimum $0.01)
+ * - list_agents: $0.001
+ * - get_agent: $0.001
+ * - add_user_to_agent: $0.005
+ * - remove_user_from_agent: $0.005
+ * - get_usage_report: $0.002
+ * - get_pricing: $0.001
  */
 
 import { AgentService } from "./src/core/agent-service.ts";
