@@ -40,7 +40,7 @@ export class PlatformAPIClient {
    */
   async validateAPIKey(apiKey: string): Promise<APIKeyValidation> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/validate-key`, {
+      const response = await fetch(`${this.baseURL}/api/mcp/validate`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -55,10 +55,10 @@ export class PlatformAPIClient {
 
       const data = await response.json();
       return {
-        valid: true,
-        organizationId: data.organizationId,
-        permissions: data.permissions,
-        userId: data.userId
+        valid: data.success || false,
+        organizationId: data.user?.organizationAccess?.[0],
+        permissions: data.user?.permissions || [],
+        userId: data.user?.id
       };
     } catch (error) {
       console.error('API key validation error:', error);
@@ -70,7 +70,7 @@ export class PlatformAPIClient {
    * Create a new agent
    */
   async createAgent(apiKey: string, agentData: CreateAgentRequest) {
-    return this.makeRequest('POST', '/api/agents', apiKey, agentData);
+    return this.makeRequest('POST', '/api/mcp/agents', apiKey, agentData);
   }
 
   /**
@@ -78,49 +78,49 @@ export class PlatformAPIClient {
    */
   async listAgents(apiKey: string, limit?: number) {
     const params = limit ? `?limit=${limit}` : '';
-    return this.makeRequest('GET', `/api/agents${params}`, apiKey);
+    return this.makeRequest('GET', `/api/mcp/agents${params}`, apiKey);
   }
 
   /**
    * Get specific agent details
    */
   async getAgent(apiKey: string, agentId: number) {
-    return this.makeRequest('GET', `/api/agents/${agentId}`, apiKey);
+    return this.makeRequest('GET', `/api/mcp/agents/${agentId}`, apiKey);
   }
 
   /**
    * Update an existing agent
    */
   async updateAgent(apiKey: string, agentId: number, updates: UpdateAgentRequest) {
-    return this.makeRequest('PUT', `/api/agents/${agentId}`, apiKey, updates);
+    return this.makeRequest('PUT', `/api/mcp/agents/${agentId}`, apiKey, updates);
   }
 
   /**
    * Delete an agent
    */
   async deleteAgent(apiKey: string, agentId: number) {
-    return this.makeRequest('DELETE', `/api/agents/${agentId}`, apiKey);
+    return this.makeRequest('DELETE', `/api/mcp/agents/${agentId}`, apiKey);
   }
 
   /**
    * Send message to agent
    */
   async promptAgent(apiKey: string, agentId: number, message: string) {
-    return this.makeRequest('POST', `/api/agents/${agentId}/chat`, apiKey, { message });
+    return this.makeRequest('POST', `/api/mcp/chat`, apiKey, { agentId, message });
   }
 
   /**
    * Grant user access to agent
    */
   async addUserToAgent(apiKey: string, agentId: number, userEmail: string) {
-    return this.makeRequest('POST', `/api/agents/${agentId}/access`, apiKey, { userEmail });
+    return this.makeRequest('POST', `/api/mcp/users`, apiKey, { userEmail });
   }
 
   /**
    * Remove user access from agent
    */
   async removeUserFromAgent(apiKey: string, agentId: number, userEmail: string) {
-    return this.makeRequest('DELETE', `/api/agents/${agentId}/access`, apiKey, { userEmail });
+    return this.makeRequest('DELETE', `/api/mcp/users`, apiKey, { userEmail });
   }
 
   /**
@@ -128,7 +128,7 @@ export class PlatformAPIClient {
    */
   async getUsageReport(apiKey: string, days?: number) {
     const params = days ? `?days=${days}` : '';
-    return this.makeRequest('GET', `/api/usage${params}`, apiKey);
+    return this.makeRequest('GET', `/api/mcp/usage${params}`, apiKey);
   }
 
   /**

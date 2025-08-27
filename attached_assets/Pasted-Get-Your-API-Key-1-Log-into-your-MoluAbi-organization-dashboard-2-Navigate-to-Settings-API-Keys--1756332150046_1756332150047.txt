@@ -1,0 +1,301 @@
+Get Your API Key
+1. Log into your MoluAbi organization dashboard
+2. Navigate to Settings → API Keys
+3. Generate a new API key with appropriate permissions
+4. Use this key for all MCP server communications
+
+## 📋 Complete Endpoint Reference
+
+### 1. API Key Validation
+**POST** `/api/mcp/validate`
+
+Validates your API key and returns organization access information.
+
+```bash
+curl -X POST "https://your-domain.com/api/mcp/validate" \
+  -H "Content-Type: application/json" \
+  -d '{"apiKey": "your_api_key_here"}'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": "user_id",
+    "organizationAccess": ["org_id_1", "org_id_2"],
+    "permissions": ["read", "write", "admin"]
+  }
+}
+```
+
+### 2. List Agents
+**GET** `/api/mcp/agents`
+
+Retrieves all agents accessible to your organization.
+
+```bash
+curl -X GET "https://your-domain.com/api/mcp/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "agents": [
+    {
+      "id": 1,
+      "name": "Customer Support Agent",
+      "description": "Handles customer inquiries",
+      "instructions": "You are a helpful customer support agent...",
+      "modelId": "claude-opus-4-1-20250805",
+      "isPublic": true,
+      "createdAt": "2025-01-27T21:30:00.000Z"
+    }
+  ]
+}
+```
+
+### 3. Get Single Agent
+**GET** `/api/mcp/agents/:id`
+
+Retrieves detailed information for a specific agent.
+
+```bash
+curl -X GET "https://your-domain.com/api/mcp/agents/1" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "agent": {
+    "id": 1,
+    "name": "Customer Support Agent",
+    "description": "Handles customer inquiries",
+    "instructions": "You are a helpful customer support agent...",
+    "modelId": "claude-opus-4-1-20250805",
+    "isPublic": true,
+    "createdAt": "2025-01-27T21:30:00.000Z"
+  }
+}
+```
+
+### 4. Create Agent
+**POST** `/api/mcp/agents`
+
+Creates a new AI agent in your organization.
+
+```bash
+curl -X POST "https://your-domain.com/api/mcp/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New MCP Agent",
+    "description": "Agent created via MCP API",
+    "instructions": "You are a helpful assistant created through MCP integration.",
+    "modelId": "claude-opus-4-1-20250805",
+    "isPublic": false
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "agent": {
+    "id": 74,
+    "name": "New MCP Agent",
+    "description": "Agent created via MCP API",
+    "instructions": "You are a helpful assistant created through MCP integration.",
+    "modelId": "claude-opus-4-1-20250805",
+    "isPublic": false,
+    "createdAt": "2025-01-27T21:30:00.000Z"
+  }
+}
+```
+
+### 5. Update Agent
+**PUT** `/api/mcp/agents/:id`
+
+Updates an existing agent's configuration.
+
+```bash
+curl -X PUT "https://your-domain.com/api/mcp/agents/74" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated MCP Agent",
+    "description": "Updated description",
+    "instructions": "Updated instructions for the agent."
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "agent": {
+    "id": 74,
+    "name": "Updated MCP Agent",
+    "description": "Updated description",
+    "instructions": "Updated instructions for the agent.",
+    "modelId": "claude-opus-4-1-20250805"
+  }
+}
+```
+
+### 6. Delete Agent
+**DELETE** `/api/mcp/agents/:id`
+
+Permanently removes an agent from your organization.
+
+```bash
+curl -X DELETE "https://your-domain.com/api/mcp/agents/74" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Agent deleted successfully"
+}
+```
+
+### 7. Chat with Agent
+**POST** `/api/mcp/chat`
+
+Send messages to an agent and receive AI-powered responses.
+
+```bash
+curl -X POST "https://your-domain.com/api/mcp/chat" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentId": 1,
+    "message": "Hello, how can you help me today?",
+    "conversationId": null
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "response": "Hello! I'm here to help you with any questions or tasks you might have. What can I assist you with today?",
+  "conversationId": 143,
+  "messageId": 285,
+  "usage": {
+    "inputTokens": 45,
+    "outputTokens": 23,
+    "totalTokens": 68
+  }
+}
+```
+
+### 8. User Access Management
+**GET** `/api/mcp/users`
+
+Retrieves user access information for your organization.
+
+```bash
+curl -X GET "https://your-domain.com/api/mcp/users" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "users": [
+    {
+      "id": "user_123",
+      "email": "team@company.com",
+      "role": "org_admin",
+      "firstName": "Team",
+      "lastName": "Member",
+      "createdAt": "2025-01-15T10:30:00.000Z"
+    }
+  ]
+}
+```
+
+### 9. Usage Reporting
+**GET** `/api/mcp/usage?days=7`
+
+Generates usage reports for API consumption and costs.
+
+```bash
+curl -X GET "https://your-domain.com/api/mcp/usage?days=7" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "usage": {
+    "totalRequests": 0,
+    "totalTokens": 0,
+    "totalCost": 0,
+    "breakdown": {}
+  }
+}
+```
+
+## 🔧 Technical Implementation Notes
+
+### Route Configuration
+- **Base URL**: All MCP endpoints use the `/api/mcp/` prefix
+- **Content Type**: Use `application/json` for all POST/PUT requests
+- **Error Handling**: All endpoints return consistent error structures
+
+### Available AI Models
+- `claude-opus-4-1-20250805` - Anthropic's most powerful model
+- `gpt-5` - OpenAI's most advanced reasoning model  
+- `grok-4-0709` - xAI's most intelligent model
+
+### Rate Limiting & Security
+- API keys are organization-scoped with role-based permissions
+- All requests are logged for security and usage tracking
+- Standard HTTP status codes for all responses
+
+## 🧪 Testing Your Integration
+
+### Quick Test Sequence
+1. **Validate** your API key
+2. **List** available agents
+3. **Create** a test agent
+4. **Chat** with the agent
+5. **Check usage** reports
+
+### Error Responses
+All endpoints return consistent error structures:
+```json
+{
+  "success": false,
+  "error": "Error description here"
+}
+```
+
+## 🎯 Ready for Production
+
+The complete MCP endpoint suite is **production-ready** and fully validated. You can now:
+- ✅ Authenticate using organization API keys
+- ✅ Manage agents (full CRUD operations)
+- ✅ Execute chat conversations with AI models
+- ✅ Monitor usage and access patterns
+- ✅ Integrate seamlessly with MoluAbi's enterprise platform
+
+## 🤝 Support & Integration Help
+
+For technical support during your MCP server integration:
+- All endpoints have been tested with real API keys
+- Complete error handling and validation
+- Comprehensive logging for debugging
+- Ready for immediate production deployment
+
+Happy integrating! 🚀
