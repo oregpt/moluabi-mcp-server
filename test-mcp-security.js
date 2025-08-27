@@ -177,7 +177,7 @@ class MCPTester {
   }
 
   async testCreateAgent() {
-    await this.log('\n🤖 Testing create_agent Tool...', 'bold');
+    await this.log('\n🤖 Testing Create Agent Tool...', 'bold');
     
     const result = await this.callTool('create_agent', {
       apiKey: API_KEY,
@@ -190,11 +190,11 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success(`Agent created successfully - ID: ${result.data.agent?.id}`);
+      await this.success(`Create Agent: Agent created successfully - ID: ${result.data.agent?.id}`);
       await this.info(`Cost: $${result.data.cost}`);
       return result.data.agent?.id;
     } else {
-      await this.fail(`create_agent failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`Create Agent failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
@@ -203,7 +203,7 @@ class MCPTester {
   }
 
   async testListAgents() {
-    await this.log('\n📋 Testing list_agents Tool...', 'bold');
+    await this.log('\n📋 Testing List Agents Tool...', 'bold');
     
     const result = await this.callTool('list_agents', {
       apiKey: API_KEY,
@@ -211,11 +211,11 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success(`Listed ${result.data.agents?.length || 0} agents`);
+      await this.success(`List Agents: Found ${result.data.agents?.length || 0} agents`);
       await this.info(`Cost: $${result.data.cost}`);
       return result.data.agents;
     } else {
-      await this.fail(`list_agents failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`List Agents failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
@@ -223,8 +223,8 @@ class MCPTester {
     }
   }
 
-  async testGetAgent(agentId = 1) {
-    await this.log('\n🔍 Testing get_agent Tool...', 'bold');
+  async testViewAgent(agentId = 1) {
+    await this.log('\n🔍 Testing View Agent Tool...', 'bold');
     
     const result = await this.callTool('get_agent', {
       apiKey: API_KEY,
@@ -232,18 +232,18 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success(`Retrieved agent details - ID: ${result.data.agent?.id}`);
+      await this.success(`View Agent: Retrieved agent details - ID: ${result.data.agent?.id}`);
       await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`get_agent failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`View Agent failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
     }
   }
 
-  async testPromptAgent(agentId = 1) {
-    await this.log('\n💬 Testing prompt_agent Tool...', 'bold');
+  async testChatWithAgent(agentId = 1) {
+    await this.log('\n💬 Testing Chat with Agent Tool...', 'bold');
     
     const result = await this.callTool('prompt_agent', {
       apiKey: API_KEY,
@@ -252,12 +252,12 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success('Agent responded to prompt successfully');
+      await this.success('Chat with Agent: Agent responded successfully');
       await this.info(`Response: ${result.data.response?.substring(0, 100)}...`);
       await this.info(`Tokens used: ${result.data.tokensUsed}`);
       await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`prompt_agent failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`Chat with Agent failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
@@ -265,7 +265,7 @@ class MCPTester {
   }
 
   async testUpdateAgent(agentId = 1) {
-    await this.log('\n✏️  Testing update_agent Tool...', 'bold');
+    await this.log('\n✏️  Testing Update Agent Tool...', 'bold');
     
     const result = await this.callTool('update_agent', {
       apiKey: API_KEY,
@@ -275,56 +275,87 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success('Agent updated successfully');
+      await this.success('Update Agent: Agent updated successfully');
       await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`update_agent failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`Update Agent failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
     }
   }
 
-  async testUserAccess(agentId = 1) {
-    await this.log('\n👥 Testing User Access Management Tools...', 'bold');
+  async testAddUserAccess(agentId = 1) {
+    await this.log('\n➕ Testing Add User Access Tool...', 'bold');
     
-    // Test add_user_to_agent
-    const addResult = await this.callTool('add_user_to_agent', {
+    const result = await this.callTool('add_user_to_agent', {
       apiKey: API_KEY,
       agentId: agentId,
       userEmail: 'test@example.com'
     });
     
-    if (addResult.data && addResult.data.success) {
-      await this.success('User access granted successfully');
-      await this.info(`Cost: $${addResult.data.cost}`);
+    if (result.data && result.data.success) {
+      await this.success('Add User Access: User access granted successfully');
+      await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`add_user_to_agent failed: ${addResult.data?.error || 'Unknown error'}`);
-      if (addResult.data?.error?.includes('API key validation failed')) {
-        await this.info('This is expected - platform API endpoints not yet implemented');
-      }
-    }
-
-    // Test remove_user_from_agent
-    const removeResult = await this.callTool('remove_user_from_agent', {
-      apiKey: API_KEY,
-      agentId: agentId,
-      userEmail: 'test@example.com'
-    });
-    
-    if (removeResult.data && removeResult.data.success) {
-      await this.success('User access removed successfully');
-      await this.info(`Cost: $${removeResult.data.cost}`);
-    } else {
-      await this.fail(`remove_user_from_agent failed: ${removeResult.data?.error || 'Unknown error'}`);
-      if (removeResult.data?.error?.includes('API key validation failed')) {
+      await this.fail(`Add User Access failed: ${result.data?.error || 'Unknown error'}`);
+      if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
     }
   }
 
+  async testRemoveUserAccess(agentId = 1) {
+    await this.log('\n➖ Testing Remove User Access Tool...', 'bold');
+    
+    const result = await this.callTool('remove_user_from_agent', {
+      apiKey: API_KEY,
+      agentId: agentId,
+      userEmail: 'test@example.com'
+    });
+    
+    if (result.data && result.data.success) {
+      await this.success('Remove User Access: User access removed successfully');
+      await this.info(`Cost: $${result.data.cost}`);
+    } else {
+      await this.fail(`Remove User Access failed: ${result.data?.error || 'Unknown error'}`);
+      if (result.data?.error?.includes('API key validation failed')) {
+        await this.info('This is expected - platform API endpoints not yet implemented');
+      }
+    }
+  }
+
+  async testUploadFile(agentId = 1) {
+    await this.log('\n📁 Testing Upload File Tool...', 'bold');
+    
+    // Create a test file content
+    const testContent = 'This is test content for file upload testing.';
+    const base64Content = Buffer.from(testContent).toString('base64');
+    
+    const result = await this.callTool('upload_file', {
+      apiKey: API_KEY,
+      agentId: agentId,
+      fileName: 'test-file.txt',
+      fileContent: base64Content,
+      contentType: 'text/plain'
+    });
+    
+    if (result.data && result.data.success) {
+      await this.success('Upload File: File uploaded successfully');
+      await this.info(`File ID: ${result.data.fileId}`);
+      await this.info(`Cost: $${result.data.cost}`);
+    } else {
+      await this.fail(`Upload File failed: ${result.data?.error || 'Tool not found'}`);
+      if (result.data?.error?.includes('API key validation failed')) {
+        await this.info('This is expected - platform API endpoints not yet implemented');
+      } else if (result.data?.error?.includes('Tool not found')) {
+        await this.warn('upload_file tool not yet implemented in MCP server');
+      }
+    }
+  }
+
   async testUsageReport() {
-    await this.log('\n📊 Testing get_usage_report Tool...', 'bold');
+    await this.log('\n📊 Testing Usage Report Tool...', 'bold');
     
     const result = await this.callTool('get_usage_report', {
       apiKey: API_KEY,
@@ -332,23 +363,40 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success('Usage report generated successfully');
+      await this.success('Usage Report: Report generated successfully');
       await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`get_usage_report failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`Usage Report failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
     }
   }
 
+  async testRefreshPricing() {
+    await this.log('\n🔄 Testing Refresh Pricing Tool...', 'bold');
+    
+    const result = await this.callTool('get_pricing', {
+      apiKey: API_KEY
+    });
+    
+    if (result.data && result.data.success) {
+      await this.success('Refresh Pricing: Latest pricing retrieved successfully');
+      await this.info(`Models available: ${Object.keys(result.data.pricing.models || {}).length}`);
+      await this.info(`Operations available: ${Object.keys(result.data.pricing.operations || {}).length}`);
+      await this.info(`Cost: $${result.data.cost}`);
+    } else {
+      await this.fail(`Refresh Pricing failed: ${result.data?.error || 'Unknown error'}`);
+    }
+  }
+
   async testDeleteAgent(agentId) {
     if (!agentId) {
-      await this.warn('Skipping delete_agent test - no agent ID available');
+      await this.warn('Skipping Delete Agent test - no agent ID available');
       return;
     }
 
-    await this.log('\n🗑️  Testing delete_agent Tool...', 'bold');
+    await this.log('\n🗑️  Testing Delete Agent Tool...', 'bold');
     
     const result = await this.callTool('delete_agent', {
       apiKey: API_KEY,
@@ -356,10 +404,10 @@ class MCPTester {
     });
     
     if (result.data && result.data.success) {
-      await this.success(`Agent ${agentId} deleted successfully`);
+      await this.success(`Delete Agent: Agent ${agentId} deleted successfully`);
       await this.info(`Cost: $${result.data.cost}`);
     } else {
-      await this.fail(`delete_agent failed: ${result.data?.error || 'Unknown error'}`);
+      await this.fail(`Delete Agent failed: ${result.data?.error || 'Unknown error'}`);
       if (result.data?.error?.includes('API key validation failed')) {
         await this.info('This is expected - platform API endpoints not yet implemented');
       }
@@ -385,18 +433,42 @@ class MCPTester {
     // Security tests
     await this.testAuthenticationSecurity();
 
-    // Tool functionality tests
-    await this.testGetPricing();
+    // All 11 MCP Tool Tests
+    await this.log('\n🛠️  Testing All 11 MCP Tools:', 'bold');
+    await this.info('1. Create Agent | 2. List Agents | 3. View Agent | 4. Update Agent | 5. Delete Agent');
+    await this.info('6. Add User Access | 7. Remove User Access | 8. Chat with Agent | 9. Upload File | 10. Usage Report | 11. Refresh Pricing');
     
+    // 11. Refresh Pricing (static tool - test first)
+    await this.testRefreshPricing();
+    
+    // 1. Create Agent 
     const agentId = await this.testCreateAgent();
+    
+    // 2. List Agents
     await this.testListAgents();
-    await this.testGetAgent(agentId || 1);
-    await this.testPromptAgent(agentId || 1);
+    
+    // 3. View Agent
+    await this.testViewAgent(agentId || 1);
+    
+    // 4. Update Agent
     await this.testUpdateAgent(agentId || 1);
-    await this.testUserAccess(agentId || 1);
+    
+    // 6. Add User Access
+    await this.testAddUserAccess(agentId || 1);
+    
+    // 7. Remove User Access
+    await this.testRemoveUserAccess(agentId || 1);
+    
+    // 8. Chat with Agent
+    await this.testChatWithAgent(agentId || 1);
+    
+    // 9. Upload File
+    await this.testUploadFile(agentId || 1);
+    
+    // 10. Usage Report
     await this.testUsageReport();
     
-    // Cleanup
+    // 5. Delete Agent (cleanup - test last)
     if (agentId) {
       await this.testDeleteAgent(agentId);
     }
