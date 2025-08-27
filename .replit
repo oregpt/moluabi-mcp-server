@@ -23,11 +23,11 @@ name = "MCP Server"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node dist/src/server.js"
+args = "npx tsx src/server.ts"
 waitForPort = 5000
 
 [deployment]

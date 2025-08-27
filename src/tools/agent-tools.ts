@@ -1,21 +1,26 @@
 import { McpError, ErrorCode, type Tool } from "@modelcontextprotocol/sdk/types.js";
-import { AgentService } from "../core/agent-service.js";
-import { PaymentManager } from "../payments/payment-manager.js";
+import { PlatformAPIClient } from "../platform/api-client.js";
+import { handlePlatformError, handleAPIKeyError, checkPermission, handlePermissionError } from "../platform/error-handler.js";
+
+// Initialize platform API client
+const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
 
 /**
- * Create all MCP tools for agent management
+ * Create all MCP tools for agent management with API key authentication
  */
-export function createAgentTools(
-  agentService: AgentService,
-  paymentManager: PaymentManager
-): Tool[] {
+export function createAgentTools(): Tool[] {
   return [
     {
       name: "create_agent",
-      description: "Create a new AI agent with custom instructions and configuration",
+      description: "Create a new AI agent with custom instructions and configuration using your MoluAbi API key",
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           name: { 
             type: "string", 
             description: "Name of the AI agent",
@@ -29,14 +34,6 @@ export function createAgentTools(
           instructions: { 
             type: "string", 
             description: "Detailed instructions for how the agent should behave" 
-          },
-          userId: { 
-            type: "string", 
-            description: "ID of the user creating the agent" 
-          },
-          organizationId: { 
-            type: "string", 
-            description: "Organization ID (optional for future use)" 
           },
           type: { 
             type: "string", 
@@ -55,19 +52,20 @@ export function createAgentTools(
             default: false
           }
         },
-        required: ["name", "userId"]
+        required: ["apiKey", "name"]
       }
     },
 
     {
       name: "list_agents", 
-      description: "List all agents accessible to the user with pagination support",
+      description: "List all agents accessible to you within your organization",
       inputSchema: {
         type: "object",
         properties: {
-          userId: { 
+          apiKey: { 
             type: "string", 
-            description: "ID of the user requesting the list" 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
           },
           limit: { 
             type: "number", 
@@ -77,42 +75,44 @@ export function createAgentTools(
             default: 50
           }
         },
-        required: ["userId"]
+        required: ["apiKey"]
       }
     },
 
     {
       name: "get_agent",
-      description: "Get detailed information about a specific agent including configuration and metadata", 
+      description: "Get detailed information about a specific agent", 
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent" 
-          },
-          userId: { 
-            type: "string", 
-            description: "ID of the user requesting agent details" 
           }
         },
-        required: ["agentId", "userId"]
+        required: ["apiKey", "agentId"]
       }
     },
 
     {
       name: "update_agent",
-      description: "Update an existing agent's configuration (owner only)",
+      description: "Update an existing agent's configuration (requires agents:write permission)",
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent to update" 
-          },
-          userId: { 
-            type: "string", 
-            description: "ID of the user requesting the update" 
           },
           name: { 
             type: "string", 
@@ -142,26 +142,27 @@ export function createAgentTools(
             description: "Update sharing permissions" 
           }
         },
-        required: ["agentId", "userId"]
+        required: ["apiKey", "agentId"]
       }
     },
 
     {
       name: "delete_agent",
-      description: "Permanently delete an agent and all associated data (owner only)",
+      description: "Permanently delete an agent and all associated data (requires agents:delete permission)",
       inputSchema: {
         type: "object", 
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent to delete" 
-          },
-          userId: { 
-            type: "string", 
-            description: "ID of the user requesting deletion (must be owner)" 
           }
         },
-        required: ["agentId", "userId"]
+        required: ["apiKey", "agentId"]
       }
     },
 
@@ -171,13 +172,14 @@ export function createAgentTools(
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent to interact with" 
-          },
-          userId: { 
-            type: "string", 
-            description: "ID of the user sending the message" 
           },
           message: { 
             type: "string", 
@@ -186,16 +188,21 @@ export function createAgentTools(
             maxLength: 10000
           }
         },
-        required: ["agentId", "userId", "message"]
+        required: ["apiKey", "agentId", "message"]
       }
     },
 
     {
       name: "add_user_to_agent",
-      description: "Grant a user access to an agent by email address",
+      description: "Grant a user access to an agent by email address (requires users:write permission)",
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent" 
@@ -204,22 +211,23 @@ export function createAgentTools(
             type: "string", 
             description: "Email address of the user to grant access to",
             format: "email"
-          },
-          ownerId: { 
-            type: "string", 
-            description: "ID of the agent owner granting access" 
           }
         },
-        required: ["agentId", "userEmail", "ownerId"]
+        required: ["apiKey", "agentId", "userEmail"]
       }
     },
 
     {
       name: "remove_user_from_agent",
-      description: "Revoke a user's access to an agent",
+      description: "Revoke a user's access to an agent (requires users:write permission)",
       inputSchema: {
         type: "object",
         properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          },
           agentId: { 
             type: "number", 
             description: "Unique identifier of the agent" 
@@ -228,25 +236,22 @@ export function createAgentTools(
             type: "string", 
             description: "Email address of the user to revoke access from",
             format: "email"
-          },
-          ownerId: { 
-            type: "string", 
-            description: "ID of the agent owner revoking access" 
           }
         },
-        required: ["agentId", "userEmail", "ownerId"]
+        required: ["apiKey", "agentId", "userEmail"]
       }
     },
 
     {
       name: "get_usage_report",
-      description: "Get detailed usage and billing report for a user",
+      description: "Get detailed usage and billing report for your account",
       inputSchema: {
         type: "object",
         properties: {
-          userId: { 
+          apiKey: { 
             type: "string", 
-            description: "ID of the user to generate report for" 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
           },
           days: { 
             type: "number", 
@@ -256,7 +261,7 @@ export function createAgentTools(
             default: 30
           }
         },
-        required: ["userId"]
+        required: ["apiKey"]
       }
     },
 
@@ -265,26 +270,194 @@ export function createAgentTools(
       description: "Get current pricing information for all models and operations",
       inputSchema: {
         type: "object",
-        properties: {},
-        additionalProperties: false
+        properties: {
+          apiKey: { 
+            type: "string", 
+            description: "Your MoluAbi API key (format: mab_...)",
+            pattern: "^mab_[a-fA-F0-9]+$"
+          }
+        },
+        required: ["apiKey"]
       }
     }
   ];
 }
 
 /**
- * Validate tool arguments and handle common validation errors
+ * Execute create_agent tool with platform API integration
+ */
+export async function handleCreateAgent(args: any) {
+  try {
+    // 1. Validate API key format
+    if (!args.apiKey || !args.apiKey.startsWith('mab_')) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 2. Validate API key with platform
+    const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+    if (!keyValidation.valid) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 3. Check required permission
+    if (!checkPermission(keyValidation.permissions || [], 'agents:write')) {
+      return handlePermissionError('create_agent', 'agents:write');
+    }
+
+    // 4. Call platform API
+    const agent = await platformClient.createAgent(args.apiKey, {
+      name: args.name,
+      description: args.description,
+      instructions: args.instructions,
+      type: args.type || 'file-based',
+      isPublic: args.isPublic || false,
+      isShareable: args.isShareable || false
+    });
+
+    return {
+      success: true,
+      agent,
+      cost: 0.05,
+      operation: "create_agent",
+      organizationId: keyValidation.organizationId
+    };
+
+  } catch (error) {
+    return handlePlatformError(error, 'create_agent');
+  }
+}
+
+/**
+ * Execute list_agents tool with platform API integration
+ */
+export async function handleListAgents(args: any) {
+  try {
+    // 1. Validate API key
+    if (!args.apiKey || !args.apiKey.startsWith('mab_')) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 2. Validate API key with platform
+    const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+    if (!keyValidation.valid) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 3. Check required permission
+    if (!checkPermission(keyValidation.permissions || [], 'agents:read')) {
+      return handlePermissionError('list_agents', 'agents:read');
+    }
+
+    // 4. Call platform API
+    const agents = await platformClient.listAgents(args.apiKey, args.limit);
+
+    return {
+      success: true,
+      agents,
+      total: agents.length,
+      cost: 0.001,
+      operation: "list_agents",
+      organizationId: keyValidation.organizationId
+    };
+
+  } catch (error) {
+    return handlePlatformError(error, 'list_agents');
+  }
+}
+
+/**
+ * Execute get_agent tool with platform API integration
+ */
+export async function handleGetAgent(args: any) {
+  try {
+    // 1. Validate API key
+    if (!args.apiKey || !args.apiKey.startsWith('mab_')) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 2. Validate API key with platform
+    const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+    if (!keyValidation.valid) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 3. Check required permission
+    if (!checkPermission(keyValidation.permissions || [], 'agents:read')) {
+      return handlePermissionError('get_agent', 'agents:read');
+    }
+
+    // 4. Call platform API
+    const agent = await platformClient.getAgent(args.apiKey, args.agentId);
+
+    return {
+      success: true,
+      agent,
+      cost: 0.001,
+      operation: "get_agent",
+      organizationId: keyValidation.organizationId
+    };
+
+  } catch (error) {
+    return handlePlatformError(error, 'get_agent');
+  }
+}
+
+/**
+ * Execute prompt_agent tool with platform API integration
+ */
+export async function handlePromptAgent(args: any) {
+  try {
+    // 1. Validate API key
+    if (!args.apiKey || !args.apiKey.startsWith('mab_')) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 2. Validate API key with platform
+    const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+    if (!keyValidation.valid) {
+      return handleAPIKeyError(args.apiKey);
+    }
+
+    // 3. Check required permission
+    if (!checkPermission(keyValidation.permissions || [], 'chat:write')) {
+      return handlePermissionError('prompt_agent', 'chat:write');
+    }
+
+    // 4. Call platform API
+    const response = await platformClient.promptAgent(args.apiKey, args.agentId, args.message);
+
+    return {
+      success: true,
+      response: response.response,
+      tokensUsed: response.tokensUsed || 0,
+      cost: response.cost || 0.01,
+      operation: "prompt_agent",
+      organizationId: keyValidation.organizationId
+    };
+
+  } catch (error) {
+    return handlePlatformError(error, 'prompt_agent');
+  }
+}
+
+/**
+ * Validate tool arguments with new API key model
  */
 export function validateToolArguments(toolName: string, args: any): void {
   if (!args) {
     throw new McpError(ErrorCode.InvalidParams, `Missing arguments for tool ${toolName}`);
   }
 
-  // Common validations
-  if (args.userId && typeof args.userId !== 'string') {
-    throw new McpError(ErrorCode.InvalidParams, "userId must be a string");
+  // API key validation
+  if (!args.apiKey) {
+    throw new McpError(ErrorCode.InvalidParams, "API key is required");
   }
 
+  if (typeof args.apiKey !== 'string' || !args.apiKey.startsWith('mab_')) {
+    throw new McpError(ErrorCode.InvalidParams, "API key must be in format 'mab_...'");
+  }
+
+  // Common validations
   if (args.agentId && (typeof args.agentId !== 'number' || args.agentId <= 0)) {
     throw new McpError(ErrorCode.InvalidParams, "agentId must be a positive number");
   }

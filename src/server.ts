@@ -11,21 +11,32 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { AgentService } from "./core/agent-service.js";
 import { PaymentManager } from "./payments/payment-manager.js";
-import { createAgentTools, validateToolArguments } from "./tools/agent-tools.js";
+import { 
+  createAgentTools, 
+  validateToolArguments, 
+  handleCreateAgent, 
+  handleListAgents, 
+  handleGetAgent, 
+  handlePromptAgent 
+} from "./tools/agent-tools.js";
+import { PlatformAPIClient } from "./platform/api-client.js";
+import { handlePlatformError } from "./platform/error-handler.js";
 
 console.log("🚀 MoluAbi MCP Server starting...");
+console.log("🔄 SECURITY UPDATE: Now using API key authentication with platform integration");
 
 // Initialize services
 const paymentMode = (process.env.PAYMENT_MODE as "none" | "atxp" | "subscription") || "none";
 const paymentManager = new PaymentManager(paymentMode);
 const agentService = new AgentService();
+const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
 
 async function main() {
   try {
     // Initialize payment system
     await paymentManager.initialize();
 
-    // Create HTTP server for health checks
+    // Create HTTP server
     const app = express();
     const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -34,14 +45,15 @@ async function main() {
       res.json({
         status: 'healthy',
         service: 'MoluAbi MCP Server',
-        version: '1.0.0',
+        version: '2.0.0',
+        authentication: 'API Key (mab_...)',
         timestamp: new Date().toISOString()
       });
     });
 
     // MCP HTTP Endpoints for developers
     app.get('/tools', (req, res) => {
-      const tools = createAgentTools(agentService, paymentManager);
+      const tools = createAgentTools();
       res.json({
         tools: tools.map(tool => ({
           name: tool.name,
@@ -71,132 +83,179 @@ async function main() {
         // Validate arguments using the same validation as MCP
         validateToolArguments(tool, args);
 
-        // Validate payment for this operation
-        const userId = args?.userId || args?.ownerId;
-        if (userId && !(await paymentManager.validatePayment(userId, tool))) {
-          return res.status(402).json({
-            error: 'Payment validation failed',
-            message: `Payment validation failed for ${tool}. Please check your account status or subscription.`
+        // All tools now use API key authentication
+        if (!args.apiKey) {
+          return res.status(400).json({ 
+            error: 'API key required', 
+            message: 'All operations require a valid MoluAbi API key (format: mab_...)' 
           });
         }
 
         let result;
-        let operationCost = 0;
 
-        // Define standard pricing for transparency
-        const PRICING = {
-          create_agent: 0.05,
-          list_agents: 0.001,
-          get_agent: 0.001,
-          update_agent: 0.02,
-          delete_agent: 0.01,
-          prompt_agent: 0.01, // Base cost, actual cost varies by tokens
-          add_user_to_agent: 0.005,
-          remove_user_from_agent: 0.005,
-          get_usage_report: 0.002,
-          get_pricing: 0.001
-        };
-
-        // Handle tool calls (same logic as MCP)
+        // Handle tool calls with new API key authentication
         switch (tool) {
           case "create_agent":
-            const agent = await agentService.createAgent({
-              name: args.name,
-              description: args.description,
-              instructions: args.instructions,
-              userId: args.userId,
-              organizationId: args.organizationId,
-              type: args.type,
-              isPublic: args.isPublic,
-              isShareable: args.isShareable,
-            });
-            operationCost = PRICING.create_agent;
-            await paymentManager.recordUsage(args.userId, "create_agent", operationCost);
-            result = {
-              success: true,
-              agent: {
-                id: agent.id,
-                name: agent.name,
-                description: agent.description,
-                type: agent.type,
-                isPublic: agent.isPublic,
-                isShareable: agent.isShareable,
-                createdAt: agent.createdAt,
-              },
-              cost: operationCost,
-              operation: "create_agent"
-            };
+            result = await handleCreateAgent(args);
             break;
 
           case "list_agents":
-            const agents = await agentService.listAgents(args.userId, args.limit);
-            operationCost = PRICING.list_agents;
-            await paymentManager.recordUsage(args.userId, "list_agents", operationCost);
-            result = {
-              success: true,
-              agents: agents.map(agent => ({
-                id: agent.id,
-                name: agent.name,
-                description: agent.description,
-                type: agent.type,
-                isPublic: agent.isPublic,
-                isShareable: agent.isShareable,
-                ownerId: agent.ownerId,
-                createdAt: agent.createdAt,
-                updatedAt: agent.updatedAt,
-              })),
-              total: agents.length,
-              cost: operationCost,
-              operation: "list_agents"
-            };
+            result = await handleListAgents(args);
             break;
 
           case "get_agent":
-            const agentDetails = await agentService.getAgent(args.agentId, args.userId);
-            if (!agentDetails) {
-              return res.status(404).json({ error: `Agent ${args.agentId} not found or access denied` });
-            }
-            operationCost = PRICING.get_agent;
-            await paymentManager.recordUsage(args.userId, "get_agent", operationCost);
-            result = {
-              success: true,
-              agent: agentDetails,
-              cost: operationCost,
-              operation: "get_agent"
-            };
+            result = await handleGetAgent(args);
             break;
 
           case "prompt_agent":
-            const response = await agentService.promptAgent({
-              agentId: args.agentId,
-              userId: args.userId,
-              message: args.message,
-            });
-            operationCost = response.cost;
-            await paymentManager.recordUsage(args.userId, "prompt_agent", operationCost);
-            result = {
-              success: true,
-              response: response.response,
-              tokensUsed: response.tokensUsed,
-              cost: operationCost,
-              operation: "prompt_agent"
-            };
+            result = await handlePromptAgent(args);
+            break;
+
+          case "update_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const agent = await platformClient.updateAgent(args.apiKey, args.agentId, {
+                name: args.name,
+                description: args.description,
+                instructions: args.instructions,
+                type: args.type,
+                isPublic: args.isPublic,
+                isShareable: args.isShareable
+              });
+
+              result = {
+                success: true,
+                agent,
+                cost: 0.02,
+                operation: "update_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'update_agent');
+            }
+            break;
+
+          case "delete_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.deleteAgent(args.apiKey, args.agentId);
+
+              result = {
+                success: true,
+                message: `Agent ${args.agentId} deleted successfully`,
+                cost: 0.01,
+                operation: "delete_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'delete_agent');
+            }
+            break;
+
+          case "add_user_to_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.addUserToAgent(args.apiKey, args.agentId, args.userEmail);
+
+              result = {
+                success: true,
+                message: `Access granted to ${args.userEmail}`,
+                cost: 0.005,
+                operation: "add_user_to_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'add_user_to_agent');
+            }
+            break;
+
+          case "remove_user_from_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.removeUserFromAgent(args.apiKey, args.agentId, args.userEmail);
+
+              result = {
+                success: true,
+                message: `Access removed for ${args.userEmail}`,
+                cost: 0.005,
+                operation: "remove_user_from_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'remove_user_from_agent');
+            }
+            break;
+
+          case "get_usage_report":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const report = await platformClient.getUsageReport(args.apiKey, args.days);
+
+              result = {
+                success: true,
+                report,
+                cost: 0.002,
+                operation: "get_usage_report",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_usage_report');
+            }
             break;
 
           case "get_pricing":
-            const pricing = await agentService.getPricing();
-            operationCost = PRICING.get_pricing;
-            await paymentManager.recordUsage(args.userId || 'anonymous', "get_pricing", operationCost);
-            result = {
-              success: true,
-              pricing,
-              cost: operationCost,
-              operation: "get_pricing"
-            };
+            try {
+              const pricing = await agentService.getPricing();
+              result = {
+                success: true,
+                pricing,
+                cost: 0.001,
+                operation: "get_pricing"
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_pricing');
+            }
             break;
 
           default:
             return res.status(400).json({ error: `Unknown tool: ${tool}` });
+        }
+
+        // Record usage if payment system is enabled and operation was successful
+        if (result.success && result.cost > 0 && args.apiKey) {
+          try {
+            const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+            if (keyValidation.valid && keyValidation.userId) {
+              await paymentManager.recordUsage(keyValidation.userId, tool, result.cost);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to record usage:', error);
+          }
         }
 
         res.json(result);
@@ -219,7 +278,7 @@ async function main() {
     const server = new Server(
       {
         name: "moluabi-mcp-server",
-        version: "1.0.0",
+        version: "2.0.0",
       },
       {
         capabilities: {
@@ -229,15 +288,16 @@ async function main() {
     );
 
     // Register all agent management tools
-    const tools = createAgentTools(agentService, paymentManager);
+    const tools = createAgentTools();
     console.log(`🔧 Available tools: ${tools.map(t => t.name).join(', ')}`);
+    console.log(`🔑 Authentication: All tools require API key (mab_...)`);
 
     // Handle tool listing requests
     server.setRequestHandler(ListToolsRequestSchema, async () => {
       return { tools };
     });
 
-    // Set up tool call handlers
+    // Set up tool call handlers for MCP protocol
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
@@ -245,212 +305,171 @@ async function main() {
         // Validate arguments
         validateToolArguments(name, args);
 
-        // Validate payment for this operation
-        const userId = (args as any)?.userId || (args as any)?.ownerId;
-        if (userId && !(await paymentManager.validatePayment(userId, name))) {
-          throw new McpError(
-            ErrorCode.InternalError, 
-            `Payment validation failed for ${name}. Please check your account status or subscription.`
-          );
-        }
-
         let result;
-        let operationCost = 0;
 
-        // Define standard pricing for transparency
-        const PRICING = {
-          create_agent: 0.05,
-          list_agents: 0.001,
-          get_agent: 0.001,
-          update_agent: 0.02,
-          delete_agent: 0.01,
-          prompt_agent: 0.01, // Base cost, actual cost varies by tokens
-          add_user_to_agent: 0.005,
-          remove_user_from_agent: 0.005,
-          get_usage_report: 0.002,
-          get_pricing: 0.001
-        };
-
-        // Handle tool calls
+        // Handle tool calls with new API key authentication
         switch (name) {
           case "create_agent":
-            const agent = await agentService.createAgent({
-              name: (args as any).name,
-              description: (args as any).description,
-              instructions: (args as any).instructions,
-              userId: (args as any).userId,
-              organizationId: (args as any).organizationId,
-              type: (args as any).type,
-              isPublic: (args as any).isPublic,
-              isShareable: (args as any).isShareable,
-            });
-            operationCost = PRICING.create_agent;
-            await paymentManager.recordUsage((args as any).userId, "create_agent", operationCost);
-            result = {
-              success: true,
-              agent: {
-                id: agent.id,
-                name: agent.name,
-                description: agent.description,
-                type: agent.type,
-                isPublic: agent.isPublic,
-                isShareable: agent.isShareable,
-                createdAt: agent.createdAt,
-              },
-              cost: operationCost,
-              operation: "create_agent"
-            };
+            result = await handleCreateAgent(args);
             break;
 
           case "list_agents":
-            const agents = await agentService.listAgents((args as any).userId, (args as any).limit);
-            operationCost = PRICING.list_agents;
-            await paymentManager.recordUsage((args as any).userId, "list_agents", operationCost);
-            result = {
-              success: true,
-              agents: agents.map(agent => ({
-                id: agent.id,
-                name: agent.name,
-                description: agent.description,
-                type: agent.type,
-                isPublic: agent.isPublic,
-                isShareable: agent.isShareable,
-                ownerId: agent.ownerId,
-                createdAt: agent.createdAt,
-                updatedAt: agent.updatedAt,
-              })),
-              total: agents.length,
-              cost: operationCost,
-              operation: "list_agents"
-            };
+            result = await handleListAgents(args);
             break;
 
           case "get_agent":
-            const agentDetails = await agentService.getAgent((args as any).agentId, (args as any).userId);
-            if (!agentDetails) {
-              throw new McpError(ErrorCode.InvalidParams, `Agent ${(args as any).agentId} not found or access denied`);
-            }
-            operationCost = PRICING.get_agent;
-            await paymentManager.recordUsage((args as any).userId, "get_agent", operationCost);
-            result = {
-              success: true,
-              agent: agentDetails,
-              cost: operationCost,
-              operation: "get_agent"
-            };
-            break;
-
-          case "update_agent":
-            const updatedAgent = await agentService.updateAgent((args as any).agentId, (args as any).userId, {
-              name: (args as any).name,
-              description: (args as any).description,
-              instructions: (args as any).instructions,
-              type: (args as any).type,
-              isPublic: (args as any).isPublic,
-              isShareable: (args as any).isShareable,
-            });
-            operationCost = PRICING.update_agent;
-            await paymentManager.recordUsage((args as any).userId, "update_agent", operationCost);
-            result = {
-              success: true,
-              agent: updatedAgent,
-              cost: operationCost,
-              operation: "update_agent"
-            };
-            break;
-
-          case "delete_agent":
-            const deleted = await agentService.deleteAgent((args as any).agentId, (args as any).userId);
-            if (!deleted) {
-              throw new McpError(ErrorCode.InvalidParams, `Agent ${(args as any).agentId} not found or access denied`);
-            }
-            operationCost = PRICING.delete_agent;
-            await paymentManager.recordUsage((args as any).userId, "delete_agent", operationCost);
-            result = {
-              success: true,
-              message: `Agent ${(args as any).agentId} deleted successfully`,
-              cost: operationCost,
-              operation: "delete_agent"
-            };
+            result = await handleGetAgent(args);
             break;
 
           case "prompt_agent":
-            const response = await agentService.promptAgent({
-              agentId: (args as any).agentId,
-              userId: (args as any).userId,
-              message: (args as any).message,
-            });
-            operationCost = response.cost; // Actual cost from AI service
-            await paymentManager.recordUsage((args as any).userId, "prompt_agent", operationCost);
-            result = {
-              success: true,
-              response: response.response,
-              tokensUsed: response.tokensUsed,
-              cost: operationCost,
-              operation: "prompt_agent"
-            };
+            result = await handlePromptAgent(args);
+            break;
+
+          case "update_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const agent = await platformClient.updateAgent((args as any).apiKey, (args as any).agentId, {
+                name: (args as any).name,
+                description: (args as any).description,
+                instructions: (args as any).instructions,
+                type: (args as any).type,
+                isPublic: (args as any).isPublic,
+                isShareable: (args as any).isShareable
+              });
+
+              result = {
+                success: true,
+                agent,
+                cost: 0.02,
+                operation: "update_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'update_agent');
+            }
+            break;
+
+          case "delete_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.deleteAgent((args as any).apiKey, (args as any).agentId);
+
+              result = {
+                success: true,
+                message: `Agent ${(args as any).agentId} deleted successfully`,
+                cost: 0.01,
+                operation: "delete_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'delete_agent');
+            }
             break;
 
           case "add_user_to_agent":
-            const accessGranted = await agentService.addUserToAgent(
-              (args as any).agentId, 
-              (args as any).userEmail, 
-              (args as any).ownerId
-            );
-            operationCost = PRICING.add_user_to_agent;
-            await paymentManager.recordUsage((args as any).ownerId, "add_user_to_agent", operationCost);
-            result = {
-              success: true,
-              message: accessGranted ? 
-                `Access granted to ${(args as any).userEmail}` : 
-                `User ${(args as any).userEmail} already has access`,
-              cost: operationCost,
-              operation: "add_user_to_agent"
-            };
+            try {
+              const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.addUserToAgent((args as any).apiKey, (args as any).agentId, (args as any).userEmail);
+
+              result = {
+                success: true,
+                message: `Access granted to ${(args as any).userEmail}`,
+                cost: 0.005,
+                operation: "add_user_to_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'add_user_to_agent');
+            }
             break;
 
           case "remove_user_from_agent":
-            await agentService.removeUserFromAgent(
-              (args as any).agentId, 
-              (args as any).userEmail, 
-              (args as any).ownerId
-            );
-            operationCost = PRICING.remove_user_from_agent;
-            await paymentManager.recordUsage((args as any).ownerId, "remove_user_from_agent", operationCost);
-            result = {
-              success: true,
-              message: `Access removed for ${(args as any).userEmail}`,
-              cost: operationCost,
-              operation: "remove_user_from_agent"
-            };
+            try {
+              const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.removeUserFromAgent((args as any).apiKey, (args as any).agentId, (args as any).userEmail);
+
+              result = {
+                success: true,
+                message: `Access removed for ${(args as any).userEmail}`,
+                cost: 0.005,
+                operation: "remove_user_from_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'remove_user_from_agent');
+            }
             break;
 
           case "get_usage_report":
-            const usageReport = await agentService.getUsageReport((args as any).userId, (args as any).days);
-            operationCost = PRICING.get_usage_report;
-            await paymentManager.recordUsage((args as any).userId, "get_usage_report", operationCost);
-            result = {
-              success: true,
-              report: usageReport,
-              cost: operationCost,
-              operation: "get_usage_report"
-            };
+            try {
+              const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const report = await platformClient.getUsageReport((args as any).apiKey, (args as any).days);
+
+              result = {
+                success: true,
+                report,
+                cost: 0.002,
+                operation: "get_usage_report",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_usage_report');
+            }
             break;
 
           case "get_pricing":
-            const pricing = await agentService.getPricing();
-            operationCost = PRICING.get_pricing;
-            await paymentManager.recordUsage((args as any).userId || 'anonymous', "get_pricing", operationCost);
-            result = {
-              success: true,
-              pricing,
-              cost: operationCost,
-              operation: "get_pricing"
-            };
+            try {
+              const pricing = await agentService.getPricing();
+              result = {
+                success: true,
+                pricing,
+                cost: 0.001,
+                operation: "get_pricing"
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_pricing');
+            }
             break;
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+        }
+
+        // Record usage if payment system is enabled and operation was successful
+        if (result.success && result.cost > 0 && (args as any).apiKey) {
+          try {
+            const keyValidation = await platformClient.validateAPIKey((args as any).apiKey);
+            if (keyValidation.valid && keyValidation.userId) {
+              await paymentManager.recordUsage(keyValidation.userId, name, result.cost);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to record usage:', error);
+          }
         }
 
         return {
@@ -484,6 +503,7 @@ async function main() {
     await server.connect(transport);
     
     console.log("✅ MoluAbi MCP Server ready and listening for requests");
+    console.log("🔐 Security: API key authentication enforced for all operations");
 
   } catch (error) {
     console.error("❌ Failed to start MCP server:", error);

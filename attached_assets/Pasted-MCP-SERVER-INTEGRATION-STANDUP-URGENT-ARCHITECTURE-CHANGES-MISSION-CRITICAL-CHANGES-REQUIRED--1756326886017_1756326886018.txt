@@ -1,0 +1,486 @@
+MCP SERVER INTEGRATION STANDUP - URGENT ARCHITECTURE CHANGES
+🎯 MISSION CRITICAL CHANGES REQUIRED
+Your MCP server currently bypasses all platform business logic and has critical security vulnerabilities. This document provides exact implementation steps to integrate with the main platform's HTTP API instead of direct database access.
+
+🚨 CURRENT CRITICAL ISSUES
+1. Security Vulnerability - No Authentication
+Problem: MCP server accepts any userId parameter without validation
+
+// ❌ CURRENT: Anyone can impersonate any user
+const tools = await mcpClient.callTool('create_agent', {
+  userId: "any-user-id-here",  // No validation!
+  name: "Malicious Agent"
+});
+2. Business Logic Bypass
+Problem: Direct database operations skip all platform validation
+
+// ❌ CURRENT: Bypasses all business rules
+await db.insert(agents).values(agentData);  // No permission checks, no validation
+3. Organization Model Mismatch
+Problem: MCP accepts organizationId but your database has no organization structure
+
+// ❌ CURRENT: organizationId is ignored completely
+createAgent({ organizationId: "fake-org", ... })  // Parameter accepted but unused
+✅ REQUIRED IMPLEMENTATION CHANGES
+STEP 1: Replace Direct Database Access with HTTP API Calls
+Current Implementation Problem:
+
+// ❌ src/core/agent-service.ts - REMOVE THIS APPROACH
+async createAgent(params: CreateAgentParams): Promise<Agent> {
+  // Direct database insert - bypasses all business logic
+  const [agent] = await db.insert(agents).values({
+    name: params.name,
+    description: params.description,
+    ownerId: params.userId,  // No validation that user exists
+    organizationId: params.organizationId  // Ignored - no org support
+  }).returning();
+  return agent;
+}
+Required New Implementation:
+
+// ✅ src/core/agent-service.ts - NEW APPROACH REQUIRED
+async createAgent(apiKey: string, params: CreateAgentParams): Promise<Agent> {
+  // Call main platform HTTP API instead of direct database
+  const response = await fetch(`${PLATFORM_URL}/api/agents`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: params.name,
+      description: params.description,
+      instructions: params.instructions,
+      type: params.type,
+      isPublic: params.isPublic,
+      isShareable: params.isShareable
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Platform API error: ${response.status} ${response.statusText}`);
+  }
+  return await response.json();
+}
+STEP 2: Add API Key Authentication to All Tools
+Current Tools Problem:
+
+// ❌ src/tools/agent-tools.ts - CURRENT VULNERABLE APPROACH
+{
+  name: "create_agent",
+  description: "Create a new AI agent",
+  inputSchema: {
+    type: "object",
+    properties: {
+      userId: { type: "string" },  // No validation - security risk!
+      name: { type: "string" }
+    }
+  }
+}
+Required New Tool Structure:
+
+// ✅ src/tools/agent-tools.ts - NEW SECURE APPROACH
+{
+  name: "create_agent", 
+  description: "Create a new AI agent",
+  inputSchema: {
+    type: "object",
+    properties: {
+      apiKey: { type: "string", description: "Your MoluAbi API key" },
+      name: { type: "string" },
+      description: { type: "string" },
+      instructions: { type: "string" },
+      type: { type: "string", enum: ["file-based", "team", "hybrid"] },
+      isPublic: { type: "boolean" },
+      isShareable: { type: "boolean" }
+    },
+    required: ["apiKey", "name"]
+  }
+}
+STEP 3: Implement HTTP Client for Platform API
+Create New File: src/platform/api-client.ts
+
+// ✅ NEW FILE REQUIRED: src/platform/api-client.ts
+export class PlatformAPIClient {
+  private baseURL: string;
+  constructor(baseURL: string) {
+    this.baseURL = baseURL;
+  }
+  async createAgent(apiKey: string, agentData: any) {
+    return this.makeRequest('POST', '/api/agents', apiKey, agentData);
+  }
+  async listAgents(apiKey: string, limit?: number) {
+    const params = limit ? `?limit=${limit}` : '';
+    return this.makeRequest('GET', `/api/agents${params}`, apiKey);
+  }
+  async getAgent(apiKey: string, agentId: number) {
+    return this.makeRequest('GET', `/api/agents/${agentId}`, apiKey);
+  }
+  async updateAgent(apiKey: string, agentId: number, updates: any) {
+    return this.makeRequest('PUT', `/api/agents/${agentId}`, apiKey, updates);
+  }
+  async deleteAgent(apiKey: string, agentId: number) {
+    return this.makeRequest('DELETE', `/api/agents/${agentId}`, apiKey);
+  }
+  async promptAgent(apiKey: string, agentId: number, message: string) {
+    return this.makeRequest('POST', `/api/agents/${agentId}/chat`, apiKey, { message });
+  }
+  private async makeRequest(method: string, endpoint: string, apiKey: string, body?: any) {
+    const url = `${this.baseURL}${endpoint}`;
+    const options: RequestInit = {
+      method,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'MoluAbi-MCP-Server/1.0'
+      }
+    };
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Platform API Error ${response.status}: ${errorText}`);
+    }
+    return await response.json();
+  }
+}
+STEP 4: Update All Tool Handlers
+Example: Update create_agent Tool
+
+// ✅ src/tools/agent-tools.ts - UPDATE REQUIRED
+import { PlatformAPIClient } from '../platform/api-client';
+const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://your-platform.com');
+async function handleCreateAgent(args: any) {
+  try {
+    // Validate API key is provided
+    if (!args.apiKey) {
+      return {
+        success: false,
+        error: "API key is required",
+        cost: 0
+      };
+    }
+    // Call platform API instead of direct database
+    const agent = await platformClient.createAgent(args.apiKey, {
+      name: args.name,
+      description: args.description,
+      instructions: args.instructions,
+      type: args.type || 'file-based',
+      isPublic: args.isPublic || false,
+      isShareable: args.isShareable || false
+    });
+    return {
+      success: true,
+      agent,
+      cost: 0.05,
+      operation: "create_agent"
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      cost: 0
+    };
+  }
+}
+STEP 5: Remove Database Dependencies
+Files to Modify:
+
+Remove from src/core/agent-service.ts:
+
+All database imports (import { db } from '../db')
+All direct SQL operations
+Custom validation logic
+Remove from package.json:
+
+Drizzle ORM dependencies (if not needed for other features)
+PostgreSQL client dependencies
+Remove Environment Variables:
+
+DATABASE_URL (no longer needed)
+Database connection configuration
+STEP 6: Update Tool Parameter Requirements
+For ALL 10 tools, remove these parameters:
+
+userId (security risk - no validation)
+organizationId (not supported by platform database)
+ownerId (determined by API key authentication)
+Add to ALL tools:
+
+apiKey (required for authentication)
+STEP 7: Error Handling for Platform Integration
+Add Comprehensive Error Handling:
+
+// ✅ src/tools/error-handler.ts - NEW FILE REQUIRED
+export function handlePlatformError(error: any) {
+  if (error.message.includes('401')) {
+    return {
+      success: false,
+      error: "Invalid API key or authentication failed",
+      cost: 0
+    };
+  }
+  
+  if (error.message.includes('403')) {
+    return {
+      success: false,
+      error: "Permission denied - check your access level",
+      cost: 0
+    };
+  }
+  
+  if (error.message.includes('404')) {
+    return {
+      success: false,
+      error: "Resource not found",
+      cost: 0
+    };
+  }
+  return {
+    success: false,
+    error: `Platform error: ${error.message}`,
+    cost: 0
+  };
+}
+🔐 NEW API KEY AUTHENTICATION SYSTEM - CRITICAL UPDATE
+Organization-Scoped & Role-Based API Keys
+BREAKING CHANGE: The platform now uses organization-scoped, role-based API keys. Your MCP server MUST be updated to handle this new authentication model.
+
+Key Changes:
+Organization-Scoped Access: API keys are tied to ONE organization only
+Role-Based Permissions: Keys inherit user's role permissions
+No Cross-Organization Access: Each key works only for its organization
+Automatic Permission Assignment: No manual permission configuration
+API Key Format & Validation:
+// ✅ NEW API Key Format
+"mab_35bd8fc33e3d1f653dc2c43055cd6f4ed7ba24e26717b8ef4ccc4a65a7d14f62"
+// ✅ Required API Key Validation in MCP Server
+async function validateAPIKey(apiKey: string): Promise<{ valid: boolean; organizationId?: string; permissions?: string[] }> {
+  const response = await fetch(`${PLATFORM_URL}/api/auth/validate-key`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey })
+  });
+  if (!response.ok) {
+    return { valid: false };
+  }
+  const data = await response.json();
+  return {
+    valid: true,
+    organizationId: data.organizationId,
+    permissions: data.permissions
+  };
+}
+Role Permission Levels:
+// Platform Administrator (highest access)
+const PLATFORM_ADMIN_PERMISSIONS = [
+  'agents:read', 'agents:write', 'agents:delete',
+  'chat:read', 'chat:write', 
+  'users:read', 'users:write', 'org:admin'
+];
+// Organization Administrator
+const ORG_ADMIN_PERMISSIONS = [
+  'agents:read', 'agents:write', 'agents:delete',
+  'chat:read', 'chat:write',
+  'users:read', 'users:write'
+];
+// Creator (most common for MCP usage)
+const CREATOR_PERMISSIONS = [
+  'agents:read', 'agents:write',
+  'chat:read', 'chat:write'
+];
+// User (read-only plus chat)
+const USER_PERMISSIONS = [
+  'agents:read',
+  'chat:read', 'chat:write'
+];
+Required MCP Tool Updates:
+OLD Tool Structure (DEPRECATED):
+
+// ❌ OLD: Manual userId and organizationId (security risk)
+{
+  name: "create_agent",
+  inputSchema: {
+    properties: {
+      userId: { type: "string" },           // ❌ Remove - security vulnerability
+      organizationId: { type: "string" },  // ❌ Remove - determined by API key
+      name: { type: "string" }
+    }
+  }
+}
+NEW Tool Structure (REQUIRED):
+
+// ✅ NEW: Organization-scoped API key authentication
+{
+  name: "create_agent",
+  inputSchema: {
+    properties: {
+      apiKey: { 
+        type: "string", 
+        description: "Organization-scoped MoluAbi API key (format: mab_...)"
+      },
+      name: { type: "string" },
+      description: { type: "string" },
+      instructions: { type: "string" }
+    },
+    required: ["apiKey", "name"]
+  }
+}
+API Key Scoping Examples:
+// Example 1: Creator role in OreGPT organization
+{
+  "apiKey": "mab_35bd8fc33e3d1f653dc2c43055cd6f4ed7ba24e26717b8ef4ccc4a65a7d14f62",
+  "organizationAccess": ["oregpt"],
+  "permissions": ["agents:read", "agents:write", "chat:read", "chat:write"]
+}
+// Example 2: Org Admin role in different organization  
+{
+  "apiKey": "mab_6fa0cbe28e70c3fc7e043876117775ddde9ea49c8f1abe6795864c48962b42f3",
+  "organizationAccess": ["org-1756220289955"], 
+  "permissions": ["agents:read", "agents:write", "agents:delete", "chat:read", "chat:write", "users:read", "users:write"]
+}
+Permission Validation in Tools:
+// ✅ Required permission checking in each tool
+async function handleCreateAgent(args: any) {
+  // 1. Validate API key
+  const keyValidation = await validateAPIKey(args.apiKey);
+  if (!keyValidation.valid) {
+    return { success: false, error: "Invalid API key", cost: 0 };
+  }
+  // 2. Check required permission
+  if (!keyValidation.permissions.includes('agents:write')) {
+    return { 
+      success: false, 
+      error: "Permission denied: agents:write required for this operation", 
+      cost: 0 
+    };
+  }
+  // 3. Make API call with organization context
+  const response = await fetch(`${PLATFORM_URL}/api/agents`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${args.apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: args.name,
+      description: args.description,
+      instructions: args.instructions
+      // organizationId automatically determined by API key
+    })
+  });
+  return await response.json();
+}
+Error Handling for New API Keys:
+// ✅ Handle organization-scoped authentication errors
+export function handleAPIKeyError(error: any, operation: string) {
+  if (error.message.includes('401')) {
+    return {
+      success: false,
+      error: "Invalid API key. Get a new key from Settings → API Keys for your organization.",
+      cost: 0
+    };
+  }
+  
+  if (error.message.includes('403')) {
+    return {
+      success: false,
+      error: `Permission denied. Your role in this organization doesn't allow '${operation}' operations.`,
+      cost: 0
+    };
+  }
+  
+  if (error.message.includes('Organization scope')) {
+    return {
+      success: false,
+      error: "API key organization mismatch. This key can only access its assigned organization.",
+      cost: 0
+    };
+  }
+  return {
+    success: false,
+    error: `API error: ${error.message}`,
+    cost: 0
+  };
+}
+🔧 CONFIGURATION CHANGES REQUIRED
+Environment Variables to Add:
+# Add to your MCP server environment
+PLATFORM_API_URL=https://your-production-platform.com
+# Remove DATABASE_URL (no longer needed)
+Dependencies to Remove:
+npm uninstall drizzle-orm @neondatabase/serverless
+Dependencies to Add:
+npm install node-fetch @types/node-fetch
+⚡ IMPLEMENTATION TIMELINE
+Phase 1 (Week 1): Core HTTP Integration
+Create PlatformAPIClient class
+Update create_agent and list_agents tools
+Remove database connections
+Test with platform API
+Phase 2 (Week 2): Complete Tool Migration
+Update all remaining 8 tools
+Add comprehensive error handling
+Remove all database dependencies
+Update documentation
+Phase 3 (Week 3): Testing & Deployment
+End-to-end testing with real API keys
+Performance optimization
+Production deployment
+Monitoring setup
+📋 SUCCESS CRITERIA
+✅ Security: All operations require valid organization-scoped API keys
+✅ Business Logic: No database operations, only HTTP API calls
+✅ Authentication: Proper role-based permission validation before operations
+✅ Organization Scoping: API keys only access their assigned organization
+✅ Error Handling: Clear error messages for invalid keys and permission denials
+✅ Consistency: MCP responses match web platform responses exactly
+✅ Performance: HTTP calls complete within reasonable timeouts
+
+🚨 BREAKING CHANGES FOR EXISTING USERS
+Critical API Changes:
+All tools now require apiKey parameter (organization-scoped)
+Remove userId and organizationId parameters (security vulnerabilities)
+User identity and organization context determined by API key validation
+Role-based permissions enforced automatically
+No cross-organization access possible
+Migration Guide for MCP Clients:
+// ❌ OLD way (security vulnerability - DEPRECATED)
+await mcpClient.callTool('create_agent', {
+  userId: "user-123",              // ❌ Remove - security risk
+  organizationId: "org-456",       // ❌ Remove - determined by API key
+  name: "My Agent"
+});
+// ✅ NEW way (secure with organization scoping)
+await mcpClient.callTool('create_agent', {
+  apiKey: "mab_35bd8fc33e3d1f653dc2c43055cd6f4ed7ba24e26717b8ef4ccc4a65a7d14f62",
+  name: "My Agent",
+  description: "AI agent for customer support",
+  instructions: "You are a helpful customer service agent"
+});
+API Key Generation Requirements:
+// Users must generate organization-specific API keys from:
+// Settings → API Keys → Create API Key (for current organization only)
+// API key automatically inherits user's role permissions:
+// - Platform Admin: All permissions including org:admin
+// - Org Admin: Full agent and user management within organization  
+// - Creator: Agent creation and chat capabilities
+// - User: Read-only agents, chat capabilities only
+Error Response Updates:
+// ✅ NEW error responses for better debugging
+{
+  success: false,
+  error: "Permission denied: agents:write required for this operation",
+  requiredRole: "creator",
+  currentPermissions: ["agents:read", "chat:read", "chat:write"],
+  cost: 0
+}
+{
+  success: false,
+  error: "API key organization mismatch. This key can only access organization: oregpt",
+  keyOrganization: "oregpt",
+  cost: 0
+}
+This transformation converts your MCP server from a security risk with business logic bypass into a secure, authenticated API gateway that properly integrates with your platform's existing business rules and permissions.
