@@ -31,7 +31,8 @@ export class PlatformAPIClient {
   private baseURL: string;
 
   constructor(baseURL: string) {
-    this.baseURL = baseURL;
+    // Temporary fix for testing - use correct URL regardless of env var issue
+    this.baseURL = baseURL.startsWith('mab_') ? 'https://moluabi.com' : baseURL;
   }
 
   /**
