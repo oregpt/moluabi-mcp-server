@@ -325,34 +325,6 @@ class MCPTester {
     }
   }
 
-  async testUploadFile(agentId = 1) {
-    await this.log('\n📁 Testing Upload File Tool...', 'bold');
-    
-    // Create a test file content
-    const testContent = 'This is test content for file upload testing.';
-    const base64Content = Buffer.from(testContent).toString('base64');
-    
-    const result = await this.callTool('upload_file', {
-      apiKey: API_KEY,
-      agentId: agentId,
-      fileName: 'test-file.txt',
-      fileContent: base64Content,
-      contentType: 'text/plain'
-    });
-    
-    if (result.data && result.data.success) {
-      await this.success('Upload File: File uploaded successfully');
-      await this.info(`File ID: ${result.data.fileId}`);
-      await this.info(`Cost: $${result.data.cost}`);
-    } else {
-      await this.fail(`Upload File failed: ${result.data?.error || 'Tool not found'}`);
-      if (result.data?.error?.includes('API key validation failed')) {
-        await this.info('This is expected - platform API endpoints not yet implemented');
-      } else if (result.data?.error?.includes('Tool not found')) {
-        await this.warn('upload_file tool not yet implemented in MCP server');
-      }
-    }
-  }
 
   async testUsageReport() {
     await this.log('\n📊 Testing Usage Report Tool...', 'bold');
@@ -433,12 +405,12 @@ class MCPTester {
     // Security tests
     await this.testAuthenticationSecurity();
 
-    // All 11 MCP Tool Tests
-    await this.log('\n🛠️  Testing All 11 MCP Tools:', 'bold');
+    // All 10 MCP Tool Tests
+    await this.log('\n🛠️  Testing All 10 MCP Tools:', 'bold');
     await this.info('1. Create Agent | 2. List Agents | 3. View Agent | 4. Update Agent | 5. Delete Agent');
-    await this.info('6. Add User Access | 7. Remove User Access | 8. Chat with Agent | 9. Upload File | 10. Usage Report | 11. Refresh Pricing');
+    await this.info('6. Add User Access | 7. Remove User Access | 8. Chat with Agent | 9. Usage Report | 10. Refresh Pricing');
     
-    // 11. Refresh Pricing (static tool - test first)
+    // 10. Refresh Pricing (static tool - test first)
     await this.testRefreshPricing();
     
     // 1. Create Agent 
@@ -462,10 +434,7 @@ class MCPTester {
     // 8. Chat with Agent
     await this.testChatWithAgent(agentId || 1);
     
-    // 9. Upload File
-    await this.testUploadFile(agentId || 1);
-    
-    // 10. Usage Report
+    // 9. Usage Report
     await this.testUsageReport();
     
     // 5. Delete Agent (cleanup - test last)
