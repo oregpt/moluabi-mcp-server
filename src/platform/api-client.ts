@@ -113,14 +113,14 @@ export class PlatformAPIClient {
    * Grant user access to agent
    */
   async addUserToAgent(apiKey: string, agentId: number, userEmail: string) {
-    return this.makeRequest('POST', `/api/mcp/users`, apiKey, { userEmail });
+    return this.makeRequest('POST', `/api/mcp/users`, apiKey, { email: userEmail, agentId });
   }
 
   /**
    * Remove user access from agent
    */
   async removeUserFromAgent(apiKey: string, agentId: number, userEmail: string) {
-    return this.makeRequest('DELETE', `/api/mcp/users`, apiKey, { userEmail });
+    return this.makeRequest('DELETE', `/api/mcp/users`, apiKey, { email: userEmail, agentId });
   }
 
   /**
