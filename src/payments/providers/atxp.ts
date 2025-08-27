@@ -1,54 +1,58 @@
 import { PaymentProvider } from "../payment-manager.js";
 import { db, usageRecords } from "../../core/database.js";
+import { requirePayment } from "@atxp/server";
+import BigNumber from "bignumber.js";
 
 /**
- * ATXP (pay-per-use) payment provider
+ * ATXP (pay-per-use) payment provider using official ATXP SDK
  * Validates payments on a per-transaction basis
  */
 export class AtxpPaymentProvider implements PaymentProvider {
-  private atxpApiKey: string;
-  private atxpEndpoint: string;
+  private walletDestination: string;
 
   constructor() {
-    this.atxpApiKey = process.env.ATXP_API_KEY || "demo_key";
-    this.atxpEndpoint = process.env.ATXP_ENDPOINT || "https://api.atxp.example.com";
+    this.walletDestination = process.env.PAYMENT_DESTINATION || "";
+    if (!this.walletDestination) {
+      console.warn("⚠️ PAYMENT_DESTINATION not set. ATXP payments will fail.");
+    }
   }
 
   async initialize(): Promise<void> {
     console.log("💸 Payment mode: ATXP (pay-per-use)");
-    console.log(`🔗 ATXP Endpoint: ${this.atxpEndpoint}`);
+    console.log(`🔗 Payment Destination: ${this.walletDestination ? 'Set' : 'Not Set'}`);
     
-    // Test connection to ATXP service
-    try {
-      await this.testConnection();
-      console.log("✅ ATXP connection verified");
-    } catch (error) {
-      console.warn("⚠️ ATXP connection test failed, proceeding with mock validation");
+    if (this.walletDestination) {
+      console.log("✅ ATXP SDK initialized with wallet destination");
+    } else {
+      console.warn("⚠️ No PAYMENT_DESTINATION set. Please visit https://accounts.atxp.ai/ to get your wallet address");
     }
   }
 
   async validatePayment(userId: string, action: string): Promise<boolean> {
+    if (!this.walletDestination) {
+      console.warn("⚠️ No wallet destination set, allowing free access");
+      return true;
+    }
+
     try {
-      // Check user's ATXP balance and transaction limits
-      const balance = await this.getUserBalance(userId);
       const operationCost = this.getOperationCost(action);
       
-      if (balance >= operationCost) {
-        return true;
-      }
+      // Use ATXP SDK to require payment
+      await requirePayment({ 
+        price: new BigNumber(operationCost)
+      });
       
-      console.log(`⚠️ Insufficient ATXP balance for user ${userId}: $${balance} < $${operationCost}`);
-      return false;
-    } catch (error) {
-      console.error(`❌ ATXP validation error:`, error);
-      // Fallback to allowing operation in case of service issues
+      console.log(`✅ ATXP payment validated for ${action}: $${operationCost}`);
       return true;
+    } catch (error) {
+      console.error(`❌ ATXP payment validation failed for ${action}:`, error);
+      return false;
     }
   }
 
   async recordUsage(userId: string, action: string, cost: number): Promise<void> {
     try {
-      // Record in local database
+      // Record in local database for analytics
       await db.insert(usageRecords).values({
         userId,
         action,
@@ -56,8 +60,7 @@ export class AtxpPaymentProvider implements PaymentProvider {
         tokensUsed: 0, // Will be updated by the calling service
       });
 
-      // Submit to ATXP for billing
-      await this.submitAtxpCharge(userId, action, cost);
+      console.log(`💳 ATXP payment processed: ${action} for user ${userId} - $${cost.toFixed(4)}`);
       
     } catch (error) {
       console.error(`❌ Failed to record ATXP usage:`, error);
@@ -69,20 +72,10 @@ export class AtxpPaymentProvider implements PaymentProvider {
   }
 
   /**
-   * Test connection to ATXP service
+   * Get wallet destination address
    */
-  private async testConnection(): Promise<void> {
-    // Mock implementation - replace with actual ATXP API call
-    console.log("🔍 Testing ATXP connection...");
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-
-  /**
-   * Get user's current ATXP balance
-   */
-  private async getUserBalance(userId: string): Promise<number> {
-    // Mock implementation - replace with actual ATXP API call
-    return Math.random() * 10; // Random balance between $0-10
+  getWalletDestination(): string {
+    return this.walletDestination;
   }
 
   /**
@@ -105,12 +98,4 @@ export class AtxpPaymentProvider implements PaymentProvider {
     return costs[action] || 0.01; // Default cost
   }
 
-  /**
-   * Submit charge to ATXP service
-   */
-  private async submitAtxpCharge(userId: string, action: string, cost: number): Promise<void> {
-    // Mock implementation - replace with actual ATXP API call
-    console.log(`💳 [ATXP] Charging user ${userId}: $${cost.toFixed(4)} for ${action}`);
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
 }
