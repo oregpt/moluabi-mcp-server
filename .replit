@@ -1,2 +1,30 @@
+modules = ["nodejs-20", "postgresql-16"]
 [agent]
 expertMode = true
+integrations = ["javascript_database==1.0.0", "javascript_log_in_with_replit==1.0.0"]
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MCP Server"
+
+[[workflows.workflow]]
+name = "MCP Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "tsx src/server.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
