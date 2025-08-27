@@ -1,6 +1,6 @@
 import { PaymentProvider } from "../payment-manager.js";
 import { db, usageRecords } from "../../core/database.js";
-import { requirePayment } from "@atxp/server";
+import { atxpServer, requirePayment } from "@atxp/server";
 import BigNumber from "bignumber.js";
 
 /**
