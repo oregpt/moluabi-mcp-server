@@ -105,8 +105,12 @@ export class PlatformAPIClient {
   /**
    * Send message to agent
    */
-  async promptAgent(apiKey: string, agentId: number, message: string) {
-    return this.makeRequest('POST', `/api/mcp/chat`, apiKey, { agentId, message });
+  async promptAgent(apiKey: string, agentId: number, message: string, model?: string) {
+    const body: any = { agentId, message };
+    if (model) {
+      body.model = model;
+    }
+    return this.makeRequest('POST', `/api/mcp/chat`, apiKey, body);
   }
 
   /**

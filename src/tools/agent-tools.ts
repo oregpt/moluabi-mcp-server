@@ -186,6 +186,11 @@ export function createAgentTools(): Tool[] {
             description: "Message or prompt to send to the agent",
             minLength: 1,
             maxLength: 10000
+          },
+          model: {
+            type: "string",
+            description: "Optional AI model override (gpt-5, claude, grok). Uses agent's default if not specified.",
+            enum: ["gpt-5", "claude", "grok"]
           }
         },
         required: ["apiKey", "agentId", "message"]
@@ -424,7 +429,7 @@ export async function handlePromptAgent(args: any) {
     }
 
     // 4. Call platform API
-    const response = await platformClient.promptAgent(args.apiKey, args.agentId, args.message);
+    const response = await platformClient.promptAgent(args.apiKey, args.agentId, args.message, args.model);
 
     return {
       success: true,
