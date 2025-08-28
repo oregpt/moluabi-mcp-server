@@ -160,13 +160,39 @@ export class PlatformAPIClient {
       options.body = JSON.stringify(body);
     }
 
+    // Debug logging for chat calls
+    if (endpoint === '/mcp/call') {
+      console.log('🔍 DEBUG: Making chat request to platform');
+      console.log('📍 URL:', url);
+      console.log('🔑 Headers:', JSON.stringify(options.headers, null, 2));
+      console.log('📦 Body:', options.body);
+    }
+
     const response = await fetch(url, options);
+    
+    // Debug logging for chat responses
+    if (endpoint === '/mcp/call') {
+      console.log('📨 Response status:', response.status);
+      console.log('📨 Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.log('❌ Platform API Error Details:');
+      console.log('   Status:', response.status);
+      console.log('   Error text:', errorText);
+      console.log('   URL:', url);
+      console.log('   Method:', method);
       throw new Error(`Platform API Error ${response.status}: ${errorText}`);
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    
+    // Debug logging for chat response data
+    if (endpoint === '/mcp/call') {
+      console.log('📋 Response data:', JSON.stringify(responseData, null, 2));
+    }
+
+    return responseData;
   }
 }

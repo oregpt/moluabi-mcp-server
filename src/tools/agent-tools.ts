@@ -412,26 +412,49 @@ export async function handleGetAgent(args: any) {
  */
 export async function handlePromptAgent(args: any) {
   try {
+    console.log('🎯 handlePromptAgent - Starting execution');
+    console.log('📋 Arguments received:', JSON.stringify(args, null, 2));
+
     // 1. Validate API key
     if (!args.apiKey || !args.apiKey.startsWith('mab_')) {
+      console.log('❌ API key validation failed');
       return handleAPIKeyError(args.apiKey);
     }
+    console.log('✅ API key format valid');
 
     // 2. Validate API key with platform
+    console.log('🔍 Validating API key with platform...');
     const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+    console.log('🔑 Key validation result:', JSON.stringify(keyValidation, null, 2));
+    
     if (!keyValidation.valid) {
+      console.log('❌ Platform API key validation failed');
       return handleAPIKeyError(args.apiKey);
     }
+    console.log('✅ Platform API key validation successful');
 
     // 3. Check required permission
+    console.log('🔒 Checking permissions for chat:write...');
+    console.log('🔒 Available permissions:', keyValidation.permissions);
+    
     if (!checkPermission(keyValidation.permissions || [], 'chat:write')) {
+      console.log('❌ Permission check failed - missing chat:write');
       return handlePermissionError('prompt_agent', 'chat:write');
     }
+    console.log('✅ Permission check passed - chat:write available');
 
     // 4. Call platform API
+    console.log('🚀 Calling platformClient.promptAgent...');
+    console.log('📤 Request details:');
+    console.log('   - API Key:', args.apiKey?.substring(0, 8) + '...');
+    console.log('   - Agent ID:', args.agentId);
+    console.log('   - Message:', args.message);
+    console.log('   - Model:', args.model);
+    
     const response = await platformClient.promptAgent(args.apiKey, args.agentId, args.message, args.model);
+    console.log('📥 Platform response received:', JSON.stringify(response, null, 2));
 
-    return {
+    const result = {
       success: true,
       response: response.response,
       tokensUsed: response.tokensUsed || 0,
@@ -439,8 +462,15 @@ export async function handlePromptAgent(args: any) {
       operation: "prompt_agent",
       organizationId: keyValidation.organizationId
     };
+    
+    console.log('✅ Final result prepared:', JSON.stringify(result, null, 2));
+    return result;
 
   } catch (error) {
+    console.log('❌ ERROR in handlePromptAgent:');
+    console.log('   Error type:', error.constructor.name);
+    console.log('   Error message:', error.message);
+    console.log('   Error stack:', error.stack);
     return handlePlatformError(error, 'prompt_agent');
   }
 }
