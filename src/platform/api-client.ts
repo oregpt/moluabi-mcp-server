@@ -124,7 +124,7 @@ export class PlatformAPIClient {
    * Remove user access from agent
    */
   async removeUserFromAgent(apiKey: string, agentId: number, userEmail: string) {
-    return this.makeRequest('DELETE', `/api/mcp/users`, apiKey, { email: userEmail, agentId });
+    return this.makeRequest('DELETE', `/api/mcp/users/by-email`, apiKey, { email: userEmail, agentId });
   }
 
   /**
