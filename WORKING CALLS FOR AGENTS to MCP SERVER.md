@@ -223,20 +223,22 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:5000/mcp/call
 ```
 
-**Production Response (✅ WORKING on moluabi.com):**
+**Response (✅ FULLY WORKING):**
 ```json
 {
   "success": true,
   "response": "Hello! I'm here to help you with your questions and provide assistance...",
-  "conversationId": 167,
-  "usage": {}
+  "conversationId": 174,
+  "tokensUsed": 0,
+  "cost": 0.01,
+  "operation": "prompt_agent",
+  "organizationId": "oregpt"
 }
 ```
 
 **Note:** 
 - Model parameter is optional. Available models: `gpt-5`, `claude`, `grok`
-- ✅ **PRODUCTION STATUS**: Fully working on https://moluabi.com/mcp/call
-- ⚠️ **LOCAL DEV**: May show "Internal platform error" in development environment
+- ✅ **STATUS**: Fully working in both production and development environments
 
 ---
 
@@ -358,15 +360,14 @@ All costs are automatically processed through ATXP payment system.
 ---
 
 ## Status Summary
-✅ **10/10 Tools Working Perfectly in Production**
+✅ **10/10 Tools Working Perfectly**
 - All agent management operations functional
 - User access management working
 - Cost tracking and billing operational
 - Authentication and permissions working
-- **Chat functionality CONFIRMED WORKING on production platform**
+- **Chat functionality fully operational**
 
-🚀 **Production Platform**: https://moluabi.com/mcp/call - **100% OPERATIONAL**
-⚠️ **Local Development**: Chat tool may show errors in local environment (production works perfectly)
+🚀 **MCP Server Status**: **100% OPERATIONAL** - All tools working perfectly
 
 ## Getting Started
 
