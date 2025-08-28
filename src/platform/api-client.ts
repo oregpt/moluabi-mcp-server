@@ -106,11 +106,16 @@ export class PlatformAPIClient {
    * Send message to agent
    */
   async promptAgent(apiKey: string, agentId: number, message: string, model?: string) {
-    const body: any = { agentId, message };
-    if (model) {
-      body.model = model;
-    }
-    return this.makeRequest('POST', `/api/mcp/chat`, apiKey, body);
+    const payload = {
+      tool: "prompt_agent",
+      arguments: {
+        apiKey,
+        agentId,
+        message,
+        ...(model && { model })
+      }
+    };
+    return this.makeRequest('POST', '/mcp/call', apiKey, payload);
   }
 
   /**
