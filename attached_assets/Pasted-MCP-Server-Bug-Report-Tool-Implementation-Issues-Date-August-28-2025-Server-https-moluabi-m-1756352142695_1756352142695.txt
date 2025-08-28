@@ -1,0 +1,204 @@
+MCP Server Bug Report - Tool Implementation Issues
+Date: August 28, 2025
+Server: https://moluabi-mcp-server.replit.app
+API Key Used: mab_c077a4... (68 characters)
+Test Method: Direct HTTP POST to /mcp/call endpoint
+
+Summary
+Testing reveals that only 2 out of 10 tools are working properly. The server has significant gaps in tool implementation and user context mapping issues.
+
+Test Results by Tool
+✅ WORKING TOOLS (2/10)
+1. get_pricing - ✅ SUCCESS
+Request:
+
+{
+  "tool": "get_pricing",
+  "arguments": {
+    "apiKey": "mab_c077a4..."
+  }
+}
+Response:
+
+{
+  "success": true,
+  "pricing": {
+    "models": {
+      "gpt-4": {"inputCost": 0.03, "outputCost": 0.06},
+      "gpt-3.5-turbo": {"inputCost": 0.0015, "outputCost": 0.002},
+      "claude-3": {"inputCost": 0.025, "outputCost": 0.075}
+    },
+    "operations": {
+      "create_agent": 0.05,
+      "prompt_agent": 0.01,
+      "list_agents": 0.001,
+      "get_agent": 0.001
+    }
+  },
+  "cost": 0.001,
+  "operation": "get_pricing"
+}
+2. list_agents - ✅ SUCCESS (but returns empty)
+Request:
+
+{
+  "tool": "list_agents",
+  "arguments": {
+    "apiKey": "mab_c077a4..."
+  }
+}
+Response:
+
+{
+  "success": true,
+  "agents": [],
+  "total": 0,
+  "cost": 0.001,
+  "operation": "list_agents"
+}
+❌ FAILING TOOLS (8/10)
+3. create_agent - ❌ USER CONTEXT ERROR
+Request:
+
+{
+  "tool": "create_agent",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "name": "Test Agent",
+    "description": "Test description", 
+    "type": "file-based"
+  }
+}
+Response:
+
+{
+  "error": "Internal server error",
+  "message": "User with ID undefined not found"
+}
+4. get_agent - ❌ ACCESS DENIED
+Request:
+
+{
+  "tool": "get_agent",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1
+  }
+}
+Response:
+
+{
+  "error": "Agent 1 not found or access denied"
+}
+5. update_agent - ❌ TOOL NOT IMPLEMENTED
+Request:
+
+{
+  "tool": "update_agent",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1,
+    "name": "Updated Name",
+    "description": "Updated description"
+  }
+}
+Response:
+
+{
+  "error": "Unknown tool: update_agent"
+}
+6. delete_agent - ❌ TOOL NOT IMPLEMENTED
+Request:
+
+{
+  "tool": "delete_agent",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1
+  }
+}
+Response:
+
+{
+  "error": "Unknown tool: delete_agent"
+}
+7. prompt_agent - ❌ ACCESS DENIED
+Request:
+
+{
+  "tool": "prompt_agent",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1,
+    "message": "Hello test"
+  }
+}
+Response:
+
+{
+  "error": "Internal server error",
+  "message": "Agent 1 not found or access denied"
+}
+8. upload_file - ❌ TOOL NOT IMPLEMENTED
+Request:
+
+{
+  "tool": "upload_file",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1,
+    "filename": "test.txt",
+    "content": "Hello world"
+  }
+}
+Response:
+
+{
+  "error": "Unknown tool: upload_file"
+}
+9. list_files - ❌ TOOL NOT IMPLEMENTED
+Request:
+
+{
+  "tool": "list_files",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "agentId": 1
+  }
+}
+Response:
+
+{
+  "error": "Unknown tool: list_files"
+}
+10. get_usage_report - ❌ TOOL NOT IMPLEMENTED
+Request:
+
+{
+  "tool": "get_usage_report",
+  "arguments": {
+    "apiKey": "mab_c077a4...",
+    "days": 7
+  }
+}
+Response:
+
+{
+  "error": "Unknown tool: get_usage_report"
+}
+Critical Issues Identified
+🔴 1. Missing Tool Implementations (6 tools)
+These tools return "Unknown tool" errors:
+
+update_agent
+delete_agent
+upload_file
+list_files
+get_usage_report
+🔴 2. User Context Mapping Failure
+API key mab_c077a4... cannot be mapped to a user ID
+Affects create_agent tool specifically
+Error: "User with ID undefined not found"
+🔴 3. Agent Access Issues
+get_agent and prompt_agent return access denied
+Suggests either no agents exist or permission mapping is broken
