@@ -274,6 +274,91 @@ async function main() {
       }
     });
 
+    // ATXP Endpoint - ATXP MCP server on /atxp path
+    app.post('/atxp', express.json(), async (req, res) => {
+      console.log('🔄 ATXP MCP request received on /atxp:', req.body);
+      
+      // Set proper headers for MCP protocol
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
+      // Handle ATXP MCP requests - redirect to ATXP server logic
+      const { jsonrpc, method, params, id } = req.body;
+      
+      if (!jsonrpc || jsonrpc !== "2.0") {
+        return res.status(400).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32600,
+            message: "Invalid JSON-RPC request"
+          },
+          id: id || null
+        });
+      }
+      
+      try {
+        if (method === "tools/list") {
+          // Return ATXP-compatible tools list
+          const tools = createAgentTools();
+          return res.json({
+            jsonrpc: "2.0",
+            result: {
+              tools: tools.map(tool => ({
+                name: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema
+              }))
+            },
+            id
+          });
+        } else if (method === "tools/call") {
+          // Require ATXP authentication for tool execution
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+              jsonrpc: "2.0",
+              error: {
+                code: -32001,
+                message: "Payment required - ATXP authentication missing"
+              },
+              id
+            });
+          }
+          
+          // If properly authenticated, execute the tool (for now we'll return payment required)
+          return res.status(402).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32001,
+              message: "Payment required - Please complete ATXP payment flow"
+            },
+            id
+          });
+        } else {
+          return res.status(400).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32601,
+              message: `Method not found: ${method}`
+            },
+            id
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error handling ATXP request:', error);
+        return res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error"
+          },
+          id
+        });
+      }
+    });
+
     app.post('/mcp/call', express.json(), async (req, res) => {
       // Accept both "tool" and "name" parameters for backward compatibility
       const toolName = req.body.tool || req.body.name;
@@ -474,9 +559,101 @@ async function main() {
       }
     });
 
+    // ATXP Endpoint - ATXP MCP server on /atxp path
+    app.post('/atxp', express.json(), async (req, res) => {
+      console.log('🔄 ATXP MCP request received on /atxp:', req.body);
+      
+      // Set proper headers for MCP protocol
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
+      // Handle ATXP MCP requests
+      const { jsonrpc, method, params, id } = req.body;
+      
+      if (!jsonrpc || jsonrpc !== "2.0") {
+        return res.status(400).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32600,
+            message: "Invalid JSON-RPC request"
+          },
+          id: id || null
+        });
+      }
+      
+      try {
+        if (method === "tools/list") {
+          // Return ATXP-compatible tools list
+          const tools = createAgentTools();
+          return res.json({
+            jsonrpc: "2.0",
+            result: {
+              tools: tools.map(tool => ({
+                name: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema
+              }))
+            },
+            id
+          });
+        } else if (method === "tools/call") {
+          // Require ATXP authentication for tool execution
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+              jsonrpc: "2.0",
+              error: {
+                code: -32001,
+                message: "Payment required - ATXP authentication missing"
+              },
+              id
+            });
+          }
+          
+          // If properly authenticated, execute the tool (for now we'll return payment required)
+          return res.status(402).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32001,
+              message: "Payment required - Please complete ATXP payment flow"
+            },
+            id
+          });
+        } else {
+          return res.status(400).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32601,
+              message: `Method not found: ${method}`
+            },
+            id
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error handling ATXP request:', error);
+        return res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error"
+          },
+          id
+        });
+      }
+    });
+
     // Start HTTP server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🌐 HTTP server listening on port ${PORT}`);
+      console.log('📝 Available endpoints:');
+      console.log('  GET  / - Health check');
+      console.log('  POST / - Root tool execution (API Key method)');
+      console.log('  POST /mcp/call - MCP tool execution (API Key method)');
+      console.log('  POST /atxp - ATXP MCP endpoint (OAuth2 + Payment)');
+      console.log('🔑 API Key method: https://moluabi-mcp-server.replit.app/mcp/call');
+      console.log('🔐 ATXP method: https://moluabi-mcp-server.replit.app/atxp');
     });
 
     // Create MCP server
