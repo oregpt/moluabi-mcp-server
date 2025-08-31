@@ -274,90 +274,6 @@ async function main() {
       }
     });
 
-    // ATXP Endpoint - ATXP MCP server on /atxp path
-    app.post('/atxp', express.json(), async (req, res) => {
-      console.log('🔄 ATXP MCP request received on /atxp:', req.body);
-      
-      // Set proper headers for MCP protocol
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      
-      // Handle ATXP MCP requests - redirect to ATXP server logic
-      const { jsonrpc, method, params, id } = req.body;
-      
-      if (!jsonrpc || jsonrpc !== "2.0") {
-        return res.status(400).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32600,
-            message: "Invalid JSON-RPC request"
-          },
-          id: id || null
-        });
-      }
-      
-      try {
-        if (method === "tools/list") {
-          // Return ATXP-compatible tools list
-          const tools = createAgentTools();
-          return res.json({
-            jsonrpc: "2.0",
-            result: {
-              tools: tools.map(tool => ({
-                name: tool.name,
-                description: tool.description,
-                inputSchema: tool.inputSchema
-              }))
-            },
-            id
-          });
-        } else if (method === "tools/call") {
-          // Require ATXP authentication for tool execution
-          const authHeader = req.headers.authorization;
-          if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({
-              jsonrpc: "2.0",
-              error: {
-                code: -32001,
-                message: "Payment required - ATXP authentication missing"
-              },
-              id
-            });
-          }
-          
-          // If properly authenticated, execute the tool (for now we'll return payment required)
-          return res.status(402).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32001,
-              message: "Payment required - Please complete ATXP payment flow"
-            },
-            id
-          });
-        } else {
-          return res.status(400).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32601,
-              message: `Method not found: ${method}`
-            },
-            id
-          });
-        }
-      } catch (error) {
-        console.error('❌ Error handling ATXP request:', error);
-        return res.status(500).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32603,
-            message: "Internal server error"
-          },
-          id
-        });
-      }
-    });
 
     app.post('/mcp/call', express.json(), async (req, res) => {
       // Accept both "tool" and "name" parameters for backward compatibility
@@ -561,18 +477,32 @@ async function main() {
 
     // ATXP Endpoint - ATXP MCP server on /atxp path
     app.post('/atxp', express.json(), async (req, res) => {
-      console.log('🔄 ATXP MCP request received on /atxp:', req.body);
+      console.log('🔥 === ATXP ENDPOINT HIT === STARTING TRACE ===');
+      console.log('🔥 RAW REQUEST BODY:', JSON.stringify(req.body, null, 2));
+      console.log('🔥 RAW HEADERS:', JSON.stringify(req.headers, null, 2));
+      console.log('🔥 REQUEST URL:', req.url);
+      console.log('🔥 REQUEST METHOD:', req.method);
       
+      console.log('🔥 Step 1: Setting headers...');
       // Set proper headers for MCP protocol
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      console.log('🔥 Step 1: Headers set successfully');
       
+      console.log('🔥 Step 2: Extracting request body fields...');
       // Handle ATXP MCP requests
       const { jsonrpc, method, params, id } = req.body;
+      console.log('🔥 Step 2: Extracted values:');
+      console.log('🔥   - jsonrpc:', JSON.stringify(jsonrpc), typeof jsonrpc);
+      console.log('🔥   - method:', JSON.stringify(method), typeof method);
+      console.log('🔥   - params:', JSON.stringify(params), typeof params);
+      console.log('🔥   - id:', JSON.stringify(id), typeof id);
       
+      console.log('🔥 Step 3: Validating JSON-RPC format...');
       if (!jsonrpc || jsonrpc !== "2.0") {
+        console.log('🔥 Step 3: INVALID JSON-RPC - RETURNING ERROR');
         return res.status(400).json({
           jsonrpc: "2.0",
           error: {
@@ -582,10 +512,21 @@ async function main() {
           id: id || null
         });
       }
+      console.log('🔥 Step 3: JSON-RPC validation passed');
       
+      console.log('🔥 Step 4: Entering try block for method handling...');
       try {
-        console.log('🔍 ATXP method received:', JSON.stringify(method), 'type:', typeof method);
+        console.log('🔥 Step 5: Analyzing method value...');
+        console.log('🔥   - Method value (JSON):', JSON.stringify(method));
+        console.log('🔥   - Method value (string):', String(method));
+        console.log('🔥   - Method type:', typeof method);
+        console.log('🔥   - Method length:', method ? method.length : 'undefined');
+        console.log('🔥   - Method === "initialize":', method === "initialize");
+        console.log('🔥   - Method.trim() === "initialize":', method ? method.trim() === "initialize" : 'N/A');
+        
+        console.log('🔥 Step 6: Starting method comparisons...');
         if (method === "initialize") {
+          console.log('🔥 Step 6: INITIALIZE METHOD MATCHED!!! ENTERING HANDLER...');
           console.log('🛠️ MCP initialize called on /atxp');
           return res.json({
             jsonrpc: "2.0",
@@ -597,12 +538,14 @@ async function main() {
               },
               serverInfo: {
                 name: "moluabi-atxp-server",
-                version: "2.0.0"
+                version: "2.0.0",
+                debug: "INITIALIZE_METHOD_REACHED_SUCCESSFULLY"
               }
             },
             id
           });
         } else if (method === "tools/list") {
+          console.log('🔥 Step 6: TOOLS/LIST METHOD MATCHED!!! ENTERING HANDLER...');
           // Return ATXP-compatible tools list
           const tools = createAgentTools();
           return res.json({
@@ -617,6 +560,7 @@ async function main() {
             id
           });
         } else if (method === "tools/call") {
+          console.log('🔥 Step 6: TOOLS/CALL METHOD MATCHED!!! ENTERING HANDLER...');
           // Require ATXP authentication for tool execution
           const authHeader = req.headers.authorization;
           if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -640,6 +584,22 @@ async function main() {
             id
           });
         } else {
+          console.log('🔥 Step 6: NO METHOD MATCHED!!! FALLING TO DEFAULT CASE...');
+          console.log('🔥 METHOD NOT FOUND ERROR - About to return error...');
+          console.log('🔥 Method comparison results:');
+          console.log('🔥   - method === "initialize":', method === "initialize");
+          console.log('🔥   - method === "tools/list":', method === "tools/list");
+          console.log('🔥   - method === "tools/call":', method === "tools/call");
+          console.log('🔥 Detailed method analysis:');
+          for (let i = 0; i < method.length; i++) {
+            console.log(`🔥   - Char ${i}: "${method[i]}" (code: ${method.charCodeAt(i)})`);
+          }
+          console.log('🔥 Expected initialize string analysis:');
+          const expectedInit = "initialize";
+          for (let i = 0; i < expectedInit.length; i++) {
+            console.log(`🔥   - Expected char ${i}: "${expectedInit[i]}" (code: ${expectedInit.charCodeAt(i)})`);
+          }
+          
           return res.status(400).json({
             jsonrpc: "2.0",
             error: {
