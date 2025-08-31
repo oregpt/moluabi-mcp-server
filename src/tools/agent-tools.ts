@@ -468,9 +468,9 @@ export async function handlePromptAgent(args: any) {
 
   } catch (error) {
     console.log('❌ ERROR in handlePromptAgent:');
-    console.log('   Error type:', error.constructor.name);
-    console.log('   Error message:', error.message);
-    console.log('   Error stack:', error.stack);
+    console.log('   Error type:', error instanceof Error ? error.constructor.name : 'Unknown');
+    console.log('   Error message:', error instanceof Error ? error.message : String(error));
+    console.log('   Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return handlePlatformError(error, 'prompt_agent');
   }
 }
