@@ -584,6 +584,7 @@ async function main() {
       }
       
       try {
+        console.log('🔍 ATXP method received:', JSON.stringify(method), 'type:', typeof method);
         if (method === "initialize") {
           console.log('🛠️ MCP initialize called on /atxp');
           return res.json({
