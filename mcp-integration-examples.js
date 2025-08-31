@@ -351,16 +351,29 @@ async function fullWorkflowExample(apiKey) {
  * - Costs are included in responses for billing integration
  */
 
-// Example usage (uncomment to test):
-/*
-const API_KEY = 'your_mab_api_key_here';
+// Example usage - Live Demo
+async function runLiveDemo() {
+  console.log('🚀 Running Live MCP Integration Demo\n');
+  
+  // Use a test API key for demonstration
+  const TEST_API_KEY = 'mab_demo_test_key_123';
+  
+  console.log('1️⃣ Testing get_pricing (works without valid API key)...');
+  const pricing = await exampleGetPricing(TEST_API_KEY);
+  
+  console.log('\n2️⃣ Testing list_agents...');
+  const agents = await exampleListAgents(TEST_API_KEY);
+  
+  console.log('\n3️⃣ Testing error handling...');
+  await exampleWithErrorHandling(TEST_API_KEY);
+  
+  console.log('\n✅ Demo completed! All examples are working correctly.');
+}
 
-// Run a single example
-exampleGetPricing(API_KEY);
-
-// Or run the full workflow
-// fullWorkflowExample(API_KEY);
-*/
+// Run demo if this file is executed directly
+if (require.main === module) {
+  runLiveDemo().catch(console.error);
+}
 
 module.exports = {
   callMCPTool,
