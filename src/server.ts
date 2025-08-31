@@ -21,6 +21,7 @@ import {
 } from "./tools/agent-tools.js";
 import { PlatformAPIClient } from "./platform/api-client.js";
 import { handlePlatformError } from "./platform/error-handler.js";
+import { atxpServer } from '@atxp/server';
 
 console.log("🚀 MoluAbi MCP Server starting...");
 console.log("🔄 SECURITY UPDATE: Now using API key authentication with platform integration");
@@ -39,6 +40,17 @@ async function main() {
     // Create HTTP server
     const app = express();
     const PORT = parseInt(process.env.PORT || '5000', 10);
+
+    // Configure ATXP middleware for /atxp endpoint payment context
+    const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
+    if (PAYMENT_DESTINATION && paymentMode === 'atxp') {
+      console.log('🔧 Setting up ATXP middleware for payment context...');
+      app.use('/atxp', atxpServer({
+        destination: PAYMENT_DESTINATION,
+        payeeName: 'MoluAbi MCP Server',
+      }));
+      console.log('✅ ATXP middleware configured for /atxp endpoint');
+    }
 
     // Health check endpoint
     app.get('/', (req, res) => {
@@ -657,10 +669,28 @@ async function main() {
             "get_pricing": "0.001"
           };
           
-          // For ATXP endpoint, we assume payment is handled by ATXP OAuth flow
-          // The presence of a valid Bearer token indicates payment authorization
-          console.log(`💰 ATXP payment authorized via OAuth token for ${toolName} (cost: $${toolPricing[toolName] || "0.001"})`);
-          console.log('✅ ATXP payment validation successful!');
+          // Require ATXP payment before tool execution (now with proper middleware context)
+          if (toolPricing[toolName]) {
+            try {
+              const { requirePayment } = await import('@atxp/server');
+              const BigNumber = (await import('bignumber.js')).default;
+              const paymentAmount = new BigNumber(toolPricing[toolName]);
+              
+              console.log(`💰 Requiring ATXP payment: $${paymentAmount.toString()} for ${toolName}`);
+              await requirePayment({ price: paymentAmount });
+              console.log('✅ ATXP payment successful - client wallet charged!');
+            } catch (error) {
+              console.error('❌ ATXP payment failed:', error);
+              return res.status(402).json({
+                jsonrpc: "2.0",
+                error: {
+                  code: -32001,
+                  message: "Payment required - ATXP payment validation failed"
+                },
+                id
+              });
+            }
+          }
           
           // Execute the tool
           try {
