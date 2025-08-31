@@ -575,6 +575,14 @@ async function main() {
             },
             id
           });
+        } else if (method === "notifications/initialized") {
+          console.log('🔥 Step 6: NOTIFICATIONS/INITIALIZED METHOD MATCHED!!! ENTERING HANDLER...');
+          console.log('🛠️ MCP notifications/initialized called - handshake complete');
+          
+          // MCP Protocol: This is a notification, not a request - no response required
+          // Just acknowledge the successful initialization
+          res.status(200).end();
+          return;
         } else if (method === "tools/call") {
           console.log('🔥 Step 6: TOOLS/CALL METHOD MATCHED!!! ENTERING HANDLER...');
           // Require ATXP authentication for tool execution
