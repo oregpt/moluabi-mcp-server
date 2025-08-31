@@ -119,6 +119,384 @@ atxpMcpServer.tool(
   }
 );
 
+atxpMcpServer.tool(
+  "atxp_get_agent",
+  "Get details of a specific agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP get_agent tool called!');
+    
+    // Require payment before execution (0.01 USDC for get agent)
+    await requirePayment({ price: BigNumber(0.01) });
+    console.log('💰 Payment validated for get_agent');
+    
+    const result = await handleGetAgent(args);
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_update_agent",
+  "Update an existing agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent"),
+    name: z.string().optional().describe("New name for the agent"),
+    description: z.string().optional().describe("New description for the agent"),
+    instructions: z.string().optional().describe("New instructions for the agent"),
+    type: z.string().optional().describe("New type for the agent"),
+    isPublic: z.boolean().optional().describe("Whether the agent is public"),
+    isShareable: z.boolean().optional().describe("Whether the agent is shareable"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP update_agent tool called!');
+    
+    // Require payment before execution (0.03 USDC for updating)
+    await requirePayment({ price: BigNumber(0.03) });
+    console.log('💰 Payment validated for update_agent');
+    
+    // Use existing update agent logic from main server
+    try {
+      const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
+      const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+      if (!keyValidation.valid) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "Invalid API key", cost: 0.03 }, null, 2),
+            },
+          ],
+        };
+      }
+
+      const agent = await platformClient.updateAgent(args.apiKey, args.agentId, {
+        name: args.name,
+        description: args.description,
+        instructions: args.instructions,
+        type: args.type,
+        isPublic: args.isPublic,
+        isShareable: args.isShareable
+      });
+
+      const result = {
+        success: true,
+        agent,
+        cost: 0.03,
+        operation: "update_agent",
+        organizationId: keyValidation.organizationId
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorResult = handlePlatformError(error, 'update_agent');
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorResult, null, 2),
+          },
+        ],
+      };
+    }
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_delete_agent",
+  "Delete an agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent to delete"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP delete_agent tool called!');
+    
+    // Require payment before execution (0.02 USDC for deletion)
+    await requirePayment({ price: BigNumber(0.02) });
+    console.log('💰 Payment validated for delete_agent');
+    
+    try {
+      const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
+      const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+      if (!keyValidation.valid) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "Invalid API key", cost: 0.02 }, null, 2),
+            },
+          ],
+        };
+      }
+
+      await platformClient.deleteAgent(args.apiKey, args.agentId);
+
+      const result = {
+        success: true,
+        message: `Agent ${args.agentId} deleted successfully`,
+        cost: 0.02,
+        operation: "delete_agent",
+        organizationId: keyValidation.organizationId
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorResult = handlePlatformError(error, 'delete_agent');
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorResult, null, 2),
+          },
+        ],
+      };
+    }
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_add_user_to_agent",
+  "Add user access to an agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent"),
+    userId: z.string().describe("The ID of the user to add"),
+    permission: z.enum(["read", "write", "admin"]).describe("Permission level for the user"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP add_user_to_agent tool called!');
+    
+    // Require payment before execution (0.01 USDC for user management)
+    await requirePayment({ price: BigNumber(0.01) });
+    console.log('💰 Payment validated for add_user_to_agent');
+    
+    try {
+      const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
+      const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+      if (!keyValidation.valid) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "Invalid API key", cost: 0.01 }, null, 2),
+            },
+          ],
+        };
+      }
+
+      await platformClient.addUserToAgent(args.apiKey, args.agentId, args.userId, args.permission);
+
+      const result = {
+        success: true,
+        message: `User ${args.userId} added to agent ${args.agentId} with ${args.permission} permission`,
+        cost: 0.01,
+        operation: "add_user_to_agent",
+        organizationId: keyValidation.organizationId
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorResult = handlePlatformError(error, 'add_user_to_agent');
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorResult, null, 2),
+          },
+        ],
+      };
+    }
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_remove_user_from_agent",
+  "Remove user access from an agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent"),
+    userId: z.string().describe("The ID of the user to remove"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP remove_user_from_agent tool called!');
+    
+    // Require payment before execution (0.01 USDC for user management)
+    await requirePayment({ price: BigNumber(0.01) });
+    console.log('💰 Payment validated for remove_user_from_agent');
+    
+    try {
+      const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
+      const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+      if (!keyValidation.valid) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "Invalid API key", cost: 0.01 }, null, 2),
+            },
+          ],
+        };
+      }
+
+      await platformClient.removeUserFromAgent(args.apiKey, args.agentId, args.userId);
+
+      const result = {
+        success: true,
+        message: `User ${args.userId} removed from agent ${args.agentId}`,
+        cost: 0.01,
+        operation: "remove_user_from_agent",
+        organizationId: keyValidation.organizationId
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorResult = handlePlatformError(error, 'remove_user_from_agent');
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorResult, null, 2),
+          },
+        ],
+      };
+    }
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_get_usage_report",
+  "Get usage report with crypto payment",
+  {
+    days: z.number().optional().describe("Number of days to include in report"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP get_usage_report tool called!');
+    
+    // Require payment before execution (0.01 USDC for usage report)
+    await requirePayment({ price: BigNumber(0.01) });
+    console.log('💰 Payment validated for get_usage_report');
+    
+    try {
+      const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
+      const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+      if (!keyValidation.valid) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "Invalid API key", cost: 0.01 }, null, 2),
+            },
+          ],
+        };
+      }
+
+      const report = await platformClient.getUsageReport(args.apiKey, args.days || 30);
+
+      const result = {
+        success: true,
+        report,
+        cost: 0.01,
+        operation: "get_usage_report",
+        organizationId: keyValidation.organizationId
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorResult = handlePlatformError(error, 'get_usage_report');
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorResult, null, 2),
+          },
+        ],
+      };
+    }
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_get_pricing",
+  "Get current pricing information with crypto payment",
+  {
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP get_pricing tool called!');
+    
+    // Require payment before execution (0.005 USDC for pricing info)
+    await requirePayment({ price: BigNumber(0.005) });
+    console.log('💰 Payment validated for get_pricing');
+    
+    const agentService = new AgentService();
+    const pricing = await agentService.getPricing();
+    
+    const result = {
+      success: true,
+      pricing,
+      cost: 0.005,
+      operation: "get_pricing"
+    };
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+);
+
 // Create transport for ATXP server - CRITICAL for tool discovery
 const atxpTransport = new StreamableHTTPServerTransport({
   sessionIdGenerator: undefined,
