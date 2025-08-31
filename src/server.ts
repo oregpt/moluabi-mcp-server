@@ -718,7 +718,9 @@ async function main() {
               console.log(`💰 Requiring ATXP payment: $${paymentAmount.toString()} for ${toolName}`);
               console.log(`🔍 SERVER.TS: Calling requirePayment with price: ${paymentAmount}`);
               
+              console.log(`🚨🚨🚨 ABOUT TO CALL REQUIRE PAYMENT - THIS SHOULD SHOW UP 🚨🚨🚨`);
               await requirePayment({ price: paymentAmount });
+              console.log(`🚨🚨🚨 REQUIRE PAYMENT CALL COMPLETED SUCCESSFULLY 🚨🚨🚨`);
               
               console.log('✅ ATXP payment successful - client wallet charged!');
             } catch (error) {
