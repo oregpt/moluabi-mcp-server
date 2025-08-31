@@ -51,6 +51,208 @@ async function main() {
       });
     });
 
+    // ATXP SDK Compatibility: Route root POST requests to /mcp/call
+    app.post('/', express.json(), async (req, res) => {
+      console.log('🔄 ATXP SDK compatibility: Routing root POST to /mcp/call');
+      
+      // Accept both "tool" and "name" parameters for backward compatibility
+      const toolName = req.body.tool || req.body.name;
+      const args = req.body.arguments;
+      
+      try {
+        if (!toolName) {
+          return res.status(400).json({ error: 'Missing tool/name parameter' });
+        }
+
+        // Validate arguments using the same validation as MCP
+        validateToolArguments(toolName, args);
+
+        // All tools now use API key authentication
+        if (!args.apiKey) {
+          return res.status(400).json({ 
+            error: 'API key required', 
+            message: 'All operations require a valid MoluAbi API key (format: mab_...)' 
+          });
+        }
+
+        let result;
+
+        // Handle tool calls with new API key authentication
+        switch (toolName) {
+          case "create_agent":
+            result = await handleCreateAgent(args);
+            break;
+
+          case "list_agents":
+            result = await handleListAgents(args);
+            break;
+
+          case "get_agent":
+            result = await handleGetAgent(args);
+            break;
+
+          case "prompt_agent":
+            result = await handlePromptAgent(args);
+            break;
+
+          case "update_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const agent = await platformClient.updateAgent(args.apiKey, args.agentId, {
+                name: args.name,
+                description: args.description,
+                instructions: args.instructions,
+                type: args.type,
+                isPublic: args.isPublic,
+                isShareable: args.isShareable
+              });
+
+              result = {
+                success: true,
+                agent,
+                cost: 0.02,
+                operation: "update_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'update_agent');
+            }
+            break;
+
+          case "delete_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.deleteAgent(args.apiKey, args.agentId);
+
+              result = {
+                success: true,
+                message: "Agent deleted successfully",
+                cost: 0.01,
+                operation: "delete_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'delete_agent');
+            }
+            break;
+
+          case "add_user_to_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.addUserToAgent(args.apiKey, args.agentId, args.userEmail);
+
+              result = {
+                success: true,
+                message: `Access granted to ${args.userEmail}`,
+                cost: 0.005,
+                operation: "add_user_to_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'add_user_to_agent');
+            }
+            break;
+
+          case "remove_user_from_agent":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              await platformClient.removeUserFromAgent(args.apiKey, args.agentId, args.userEmail);
+
+              result = {
+                success: true,
+                message: `Access removed for ${args.userEmail}`,
+                cost: 0.005,
+                operation: "remove_user_from_agent",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'remove_user_from_agent');
+            }
+            break;
+
+          case "get_usage_report":
+            try {
+              const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+              if (!keyValidation.valid) {
+                result = { success: false, error: "Invalid API key", cost: 0 };
+                break;
+              }
+
+              const report = await platformClient.getUsageReport(args.apiKey, args.days);
+
+              result = {
+                success: true,
+                report,
+                cost: 0.002,
+                operation: "get_usage_report",
+                organizationId: keyValidation.organizationId
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_usage_report');
+            }
+            break;
+
+          case "get_pricing":
+            try {
+              const pricing = await agentService.getPricing();
+              result = {
+                success: true,
+                pricing,
+                cost: 0.001,
+                operation: "get_pricing"
+              };
+            } catch (error) {
+              result = handlePlatformError(error, 'get_pricing');
+            }
+            break;
+
+          default:
+            return res.status(400).json({ error: `Unknown tool: ${toolName}` });
+        }
+
+        // Record usage if payment system is enabled and operation was successful
+        if (result.success && result.cost > 0 && args.apiKey) {
+          try {
+            const keyValidation = await platformClient.validateAPIKey(args.apiKey);
+            if (keyValidation.valid && keyValidation.userId) {
+              await paymentManager.recordUsage(keyValidation.userId, toolName, result.cost);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to record usage:', error);
+          }
+        }
+
+        res.json(result);
+
+      } catch (error) {
+        console.error(`❌ Error executing root endpoint tool ${toolName}:`, error);
+        res.status(500).json({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
     // MCP HTTP Endpoints for developers
     app.get('/tools', (req, res) => {
       const tools = createAgentTools();
