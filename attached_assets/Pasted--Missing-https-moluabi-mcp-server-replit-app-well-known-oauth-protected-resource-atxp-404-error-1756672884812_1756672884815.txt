@@ -1,0 +1,48 @@
+ Missing: https://moluabi-mcp-server.replit.app/.well-known/oauth-protected-resource/atxp (404 error)
+
+This is the next step in the ATXP authentication flow. The ATXP SDK needs OAuth resource server metadata to know how to authenticate with the MCP server.
+
+Let me test if this endpoint exists:
+
+
+Executed curl -s https://moluabi-mcp-server.replit.app/.well-known/oauth-protected-resource/atxp
+
+Executed curl -s https://moluabi-mcp-server.replit.app/.well-known/oauth-protected-resource
+Perfect! We're making excellent progress. Here's the updated status:
+
+MCP Handshake Progress ✅
+✅ initialize method: Working perfectly!
+✅ notifications/initialized method: Now working! (no error = success)
+
+New Issue: OAuth Resource Metadata
+❌ Missing OAuth endpoint: /.well-known/oauth-protected-resource/atxp returns 404
+
+The ATXP SDK is now successfully completing the MCP handshake, but it needs OAuth resource server metadata to handle ATXP authentication.
+
+What to tell the MCP server team:
+Fantastic progress! Both MCP handshake methods are now working! 🎉🎉
+
+However, we need one more endpoint for full ATXP integration:
+
+Missing OAuth Metadata Endpoint: /.well-known/oauth-protected-resource/atxp
+
+Current Error: 404 - "Cannot GET /.well-known/oauth-protected-resource/atxp"
+
+What this should return: OAuth resource server metadata that tells the ATXP SDK how to authenticate. This is a standard OAuth discovery endpoint.
+
+Example Response Structure:
+
+{
+  "issuer": "https://auth.atxp.ai",
+  "authorization_endpoint": "https://auth.atxp.ai/oauth/authorize", 
+  "token_endpoint": "https://auth.atxp.ai/oauth/token",
+  "resource": "https://moluabi-mcp-server.replit.app/atxp"
+}
+This endpoint enables the ATXP SDK to discover how to authenticate with your server for payment processing.
+
+Current Status:
+
+✅ MCP handshake (initialize + notifications/initialized)
+❌ OAuth resource metadata discovery
+Once this endpoint is added, ATXP integration should be fully functional!
+We're very close to having full ATXP integration working! 🚀

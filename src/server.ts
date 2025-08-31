@@ -275,6 +275,24 @@ async function main() {
       }
     });
 
+    // OAuth Resource Server Metadata Endpoint for ATXP
+    app.get('/.well-known/oauth-protected-resource/atxp', (req, res) => {
+      console.log('🔐 OAuth resource metadata requested for ATXP');
+      res.json({
+        issuer: "https://auth.atxp.ai",
+        authorization_endpoint: "https://auth.atxp.ai/oauth/authorize",
+        token_endpoint: "https://auth.atxp.ai/oauth/token",
+        resource: "https://moluabi-mcp-server.replit.app/atxp",
+        scopes_supported: ["mcp:tools", "mcp:read", "mcp:write"],
+        token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+        resource_server_metadata: {
+          name: "MoluAbi ATXP MCP Server",
+          version: "2.0.0",
+          supported_operations: ["agent_management", "tool_execution"]
+        }
+      });
+    });
+
 
     app.post('/mcp/call', express.json(), async (req, res) => {
       // Accept both "tool" and "name" parameters for backward compatibility
