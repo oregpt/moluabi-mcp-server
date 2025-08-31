@@ -62,14 +62,24 @@ export class PaymentManager {
    * Validate if a user can perform a specific action
    */
   async validatePayment(userId: string, action: string): Promise<boolean> {
+    console.log(`🎯 PAYMENT MANAGER: Starting validation for user: ${userId}, action: ${action}`);
+    console.log(`🎯 PAYMENT MANAGER: Using provider: ${this.provider.getName()}, mode: ${this.mode}`);
+    
     try {
+      console.log(`🎯 PAYMENT MANAGER: Calling provider.validatePayment()...`);
       const isValid = await this.provider.validatePayment(userId, action);
+      
+      console.log(`🎯 PAYMENT MANAGER: Provider returned: ${isValid}`);
+      
       if (!isValid) {
         console.log(`⚠️ Payment validation failed for user ${userId}, action: ${action}`);
+      } else {
+        console.log(`✅ Payment validation succeeded for user ${userId}, action: ${action}`);
       }
       return isValid;
     } catch (error) {
       console.error(`❌ Payment validation error for user ${userId}, action: ${action}:`, error);
+      console.error(`❌ PaymentManager error details:`, JSON.stringify(error, null, 2));
       return false;
     }
   }

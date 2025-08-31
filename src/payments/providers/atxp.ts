@@ -29,13 +29,20 @@ export class AtxpPaymentProvider implements PaymentProvider {
   }
 
   async validatePayment(userId: string, action: string): Promise<boolean> {
+    console.log(`🔍 ATXP PAYMENT VALIDATION STARTING for user: ${userId}, action: ${action}`);
+    
     if (!this.walletDestination) {
       console.warn("⚠️ No wallet destination set, allowing free access");
       return true;
     }
 
+    console.log(`💰 Wallet destination configured: ${this.walletDestination}`);
+
     try {
       const operationCost = this.getOperationCost(action);
+      console.log(`💲 Operation cost calculated: $${operationCost} for action: ${action}`);
+      
+      console.log(`🔄 Calling ATXP SDK requirePayment with price: ${operationCost}`);
       
       // Use ATXP SDK to require payment
       await requirePayment({ 
@@ -46,6 +53,9 @@ export class AtxpPaymentProvider implements PaymentProvider {
       return true;
     } catch (error) {
       console.error(`❌ ATXP payment validation failed for ${action}:`, error);
+      console.error(`❌ Error details - name: ${error?.name}, message: ${error?.message}`);
+      console.error(`❌ Error stack:`, error?.stack);
+      console.error(`❌ Full error object:`, JSON.stringify(error, null, 2));
       return false;
     }
   }
