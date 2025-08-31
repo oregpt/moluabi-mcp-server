@@ -1,0 +1,78 @@
+Develop the MCP server
+We’re ready to start coding our MCP server now. Let’s start by creating our source code directory and server code file.
+
+Copy
+
+Ask AI
+mkdir src
+touch src/index.ts
+​
+Set up Express
+We’ll use Express to build a streamable HTTP MCP server. To do this, we’ll need the following code in our index.ts file:
+index.ts
+
+Copy
+
+Ask AI
+import express, { Request, Response } from "express";
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
+
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+
+// Setup routes for the server
+const setupServer = async () => {
+  await server.connect(transport);
+};
+
+// Setup the URL endpoint that will handle MCP requests
+app.post('/', async (req: Request, res: Response) => {
+  console.log('Received MCP request:', req.body);
+  try {
+      await transport.handleRequest(req, res, req.body);
+  } catch (error) {
+    console.error('Error handling MCP request:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'Internal server error',
+        },
+        id: null,
+      });
+    }
+  }
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+setupServer().then(() => {
+  app.listen(PORT, () => {
+    console.log(`MCP Streamable HTTP Server listening on port ${PORT}`);
+  });
+}).catch(error => {
+  console.error('Failed to set up the server:', error);
+  process.exit(1);
+});
+At this point, we should be able to build our MCP server without errors by running npm run build. We can even start it locally by running npm run start or npm run dev to start it in development mode. However, we haven’t defined any tools yet, so it won’t be very useful.

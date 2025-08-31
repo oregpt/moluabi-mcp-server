@@ -21,7 +21,114 @@ import {
 } from "./tools/agent-tools.js";
 import { PlatformAPIClient } from "./platform/api-client.js";
 import { handlePlatformError } from "./platform/error-handler.js";
-import { atxpServer } from '@atxp/server';
+import { atxpServer, requirePayment } from '@atxp/server';
+import BigNumber from 'bignumber.js';
+import { z } from 'zod';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+
+// Create ATXP-enabled MCP server at global scope
+const atxpMcpServer = new McpServer({
+  name: "moluabi-atxp-server", 
+  version: "2.0.0",
+});
+
+// Define ATXP tools at global scope - CRITICAL for tool discovery
+atxpMcpServer.tool(
+  "atxp_create_agent",
+  "Create a new AI agent with crypto payment",
+  {
+    name: z.string().describe("The name of the agent"),
+    description: z.string().describe("Description of the agent"),
+    instructions: z.string().describe("Instructions for the agent"),
+    type: z.string().describe("Type of agent"),
+    isPublic: z.boolean().optional().describe("Whether the agent is public"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP create_agent tool called!');
+    
+    // Require payment before execution (0.10 USDC for agent creation)
+    await requirePayment({ price: BigNumber(0.10) });
+    console.log('💰 Payment validated for create_agent');
+    
+    const result = await handleCreateAgent(args);
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_list_agents",
+  "List all agents with crypto payment",
+  {
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP list_agents tool called!');
+    
+    // Require payment before execution (0.02 USDC for listing)
+    await requirePayment({ price: BigNumber(0.02) });
+    console.log('💰 Payment validated for list_agents');
+    
+    const result = await handleListAgents(args);
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+);
+
+atxpMcpServer.tool(
+  "atxp_prompt_agent",
+  "Send a prompt to an agent with crypto payment",
+  {
+    agentId: z.string().describe("The ID of the agent"),
+    prompt: z.string().describe("The prompt to send"),
+    apiKey: z.string().describe("MoluAbi API key")
+  },
+  async (args) => {
+    console.log('🔥 ATXP prompt_agent tool called!');
+    
+    // Require payment before execution (0.05 USDC for prompting)
+    await requirePayment({ price: BigNumber(0.05) });
+    console.log('💰 Payment validated for prompt_agent');
+    
+    const result = await handlePromptAgent(args);
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+);
+
+// Create transport for ATXP server - CRITICAL for tool discovery
+const atxpTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined,
+});
+
+// Connect ATXP server to transport
+const setupAtxpServer = async () => {
+  await atxpMcpServer.connect(atxpTransport);
+  console.log('✅ ATXP MCP server connected to transport');
+};
 
 console.log("🚀 MoluAbi MCP Server starting...");
 console.log("🔄 SECURITY UPDATE: Now using API key authentication with platform integration");
@@ -41,31 +148,53 @@ async function main() {
     const app = express();
     const PORT = parseInt(process.env.PORT || '5000', 10);
 
-    // Configure ATXP middleware for /atxp endpoint payment context
+    // Configure ATXP middleware according to official documentation
     const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
     if (PAYMENT_DESTINATION && paymentMode === 'atxp') {
       console.log('🔧 Setting up ATXP middleware for payment context...');
+      console.log(`💰 Wallet destination: ${PAYMENT_DESTINATION}`);
       
-      // CRITICAL FIX: Ensure JSON parsing happens BEFORE ATXP middleware
-      app.use('/atxp', express.json());
+      // PROPER ATXP INTEGRATION: Following documentation pattern
+      console.log('🔧 Setting up ATXP with connected MCP server...');
       
-      // Add debug middleware to see what requests hit /atxp
-      app.use('/atxp', (req, res, next) => {
-        console.log('🔥🔥🔥 ATXP MIDDLEWARE INTERCEPTED REQUEST 🔥🔥🔥');
-        console.log('🔥 URL:', req.url);
-        console.log('🔥 Method:', req.method);
-        console.log('🔥 Headers:', JSON.stringify(req.headers, null, 2));
-        console.log('🔥 Raw Body (AFTER JSON parsing):', JSON.stringify(req.body, null, 2));
-        console.log('🔥 Content-Type:', req.get('Content-Type'));
-        console.log('🔥🔥🔥 CONTINUING TO ATXP SERVER... 🔥🔥🔥');
-        next();
+      // Setup ATXP server with transport connection
+      await setupAtxpServer();
+      
+      const atxpApp = express();
+      atxpApp.use(express.json());
+      
+      // Apply ATXP middleware to dedicated app (follows docs pattern)
+      atxpApp.use(atxpServer({
+        destination: PAYMENT_DESTINATION,
+        payeeName: 'MoluAbi MCP Server'
+      }));
+      
+      // Handle MCP requests through the transport
+      atxpApp.post('/', async (req, res) => {
+        console.log('🔥 ATXP MCP request received via transport:', req.body);
+        try {
+          await atxpTransport.handleRequest(req, res, req.body);
+        } catch (error) {
+          console.error('❌ ATXP transport error:', error);
+          if (!res.headersSent) {
+            res.status(500).json({
+              jsonrpc: '2.0',
+              error: {
+                code: -32603,
+                message: 'Internal server error',
+              },
+              id: null,
+            });
+          }
+        }
       });
       
-      app.use('/atxp', atxpServer({
-        destination: PAYMENT_DESTINATION,
-        payeeName: 'MoluAbi MCP Server',
-      }));
-      console.log('✅ ATXP middleware configured for /atxp endpoint');
+      // Mount the ATXP app as a subapplication
+      app.use('/atxp', atxpApp);
+      
+      console.log('🔧 ATXP application with transport handling created');
+      
+      console.log('✅ ATXP middleware configured for /atxp endpoint with payment-enabled tools');
     }
 
     // Health check endpoint

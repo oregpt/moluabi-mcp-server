@@ -1,0 +1,135 @@
+Define the MCP tools
+The first tool we’ll add to our MCP server is the addition tool. This tool will take two numbers and return their sum.
+index.ts
+
+Copy
+
+Ask AI
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+
+// Create our addition tool
+server.tool( 
+  "add", 
+  "Use this tool to add two numbers together.", 
+  { 
+    a: z.number().describe("The first number to add"), 
+    b: z.number().describe("The second number to add"), 
+  }, 
+  async ({ a, b }) => { 
+    return { 
+      content: [ 
+        { 
+          type: "text", 
+          text: `${a + b}`, 
+        }, 
+      ], 
+    }; 
+  } 
+); 
+
+// Create our Express application
+const app = express();
+We can now build our MCP server using npm run build to verify that it compiles without errors. At this point, we could connect a client like Goose to it and test that our tool does in fact add two numbers together, but it will be more exciting to see it in action after we’ve integrated payments. Skip forward a few steps to see how to connect to our MCP server and test it out if you want to try it out without payments.
+​
+Add payment requirements to tools
+We’ve already installed the ATXP server SDK, so we can use it to add payment requirements to our tools. First, we need to import the necessary functions from the SDK.
+index.ts
+
+Copy
+
+Ask AI
+import express, { Request, Response } from "express";
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+
+import { atxpServer, requirePayment } from '@atxp/server'; 
+import BigNumber from "bignumber.js"; 
+
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+We’ll also need to set our wallet address in an environment variable. This is the wallet that payments to use the tool will be sent to.
+
+Copy
+
+Ask AI
+export PAYMENT_DESTINATION=<YOUR_WALLET_ADDRESS>
+In our MCP server code, we’ll read this wallet address from the environment variable.
+index.ts
+
+Copy
+
+Ask AI
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Read your wallet address from the environment variable
+const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+The ATXP server SDK provides Express middleware that must be used to add payment capabilities to our MCP server. We need to configure our Express application to use this middleware.
+index.ts
+
+Copy
+
+Ask AI
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Read your wallet address from the environment variable
+const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION
+
+// Configure our Express application to use the ATXP middleware
+app.use(atxpServer({ 
+  destination: PAYMENT_DESTINATION, 
+  payeeName: 'Add', 
+}))
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+Finally, we need to modify our tool definition to require a payment before the tool is executed. We will do this by the requirePayment function from the ATXP server SDK. This function takes a price parameter that specifies the amount of USDC to charge for the tool call.
+index.ts
+
+Copy
+
+Ask AI
+// Create our addition tool
+server.tool( 
+  "add", 
+  "Use this tool to add two numbers together.", 
+  { 
+    a: z.number().describe("The first number to add"), 
+    b: z.number().describe("The second number to add"), 
+  }, 
+  async ({ a, b }) => { 
+    // Require payment (in USDC) for the tool call
+    await requirePayment({price: BigNumber(0.01)}); 
+    return { 
+      content: [ 
+        { 
+          type: "text", 
+          text: `${a + b}`, 
+        }, 
+      ], 
+    }; 
+  } 
+);
+Our MCP server is now ready to be used and will require a payment of $0.01 USDC for each call to the add tool. Now let’s test the payment integration by running the MCP server locally and connecting to it using Goose.
