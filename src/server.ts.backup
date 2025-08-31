@@ -680,77 +680,9 @@ async function main() {
       console.log('  GET  / - Health check');
       console.log('  POST / - Root tool execution (API Key method)');
       console.log('  POST /mcp/call - MCP tool execution (API Key method)');
-      if (PAYMENT_DESTINATION && paymentMode === 'atxp') {
-        console.log('  POST /atxp - ATXP MCP endpoint (OAuth2 + Payment)');
-      }
+      console.log('  POST /atxp - ATXP MCP endpoint (OAuth2 + Payment)');
       console.log('🔑 API Key method: https://moluabi-mcp-server.replit.app/mcp/call');
-      if (PAYMENT_DESTINATION && paymentMode === 'atxp') {
-        console.log('🔐 ATXP method: https://moluabi-mcp-server.replit.app/atxp');
-      }
-    });
-
-    // Create MCP server for regular API key access
-    const server = new Server(
-      {
-        name: "moluabi-mcp-server",
-        version: "2.0.0",
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    // Register all agent management tools
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return { tools };
-    });
-
-    // Set up tool call handlers for MCP protocol
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      console.log(`🔧 MCP tool call: ${name}`);
-      
-      try {
-        let result;
-        
-        switch (name) {
-          case "create_agent":
-            result = await handleCreateAgent(args);
-            break;
-          case "list_agents":
-            result = await handleListAgents(args);
-            break;
-          case "get_agent":
-            result = await handleGetAgent(args);
-            break;
-          case "prompt_agent":
-            result = await handlePromptAgent(args);
-            break;
-          case "get_pricing":
-            result = await agentService.getPricing();
-            break;
-          default:
-            throw new Error(`Tool not implemented: ${name}`);
-        }
-        
-        return result;
-      } catch (error) {
-        console.error(`❌ Error executing MCP tool ${name}:`, error);
-        throw error;
-      }
-    });
-
-    // Start the MCP server
-    const transport = new StreamableHTTPServerTransport(app);
-    
-    server.connect(transport).then(() => {
-      console.log('✅ MCP server ready and listening for requests');
-      console.log('🔐 Security: API key authentication enforced for all operations');
-    }).catch((error: Error) => {
-      console.error('💥 Failed to start MCP server:', error);
-      process.exit(1);
+      console.log('🔐 ATXP method: https://moluabi-mcp-server.replit.app/atxp');
     });
   }
 }
