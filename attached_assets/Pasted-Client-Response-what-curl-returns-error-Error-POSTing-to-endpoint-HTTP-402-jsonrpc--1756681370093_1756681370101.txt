@@ -1,0 +1,33 @@
+Client Response (what curl returns):
+
+{"error":"Error POSTing to endpoint (HTTP 402): {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32001,\"message\":\"Payment required - ATXP payment validation failed\"},\"id\":1}"}
+Server Logs (what appears in your local console):
+
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+[atxp] No access token found for resource server https://moluabi-mcp-server.replit.app/atxp. Passing no authorization header.
+[atxp] Received 401 Unauthorized status
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+[atxp] Throwing OAuthAuthenticationRequiredError for https://moluabi-mcp-server.replit.app/atxp, resource: https://moluabi-mcp-server.replit.app/
+[atxp] OAuth authentication required - ATXP client starting oauth flow for resource metadata https://moluabi-mcp-server.replit.app/
+[atxp] Getting client credentials for server: https://auth.atxp.ai (not cached)
+[atxp] Registering client with authorization server for http://localhost:3000/unused-dummy-atxp-callback
+[atxp] Successfully registered client with ID: f5f9d317fb1485fe966a968ed7cdc8a4
+[atxp] Saving client credentials for server: https://auth.atxp.ai
+[atxp] Saving PKCE values for user: atxp:tRwEwUc5CYhmPPa5NfZgB, state: SpVYvzn5bLIbVDCTyZpFIbbK8-01ROxiSgGTJXkLmRw
+[atxp] ATXP: got response.ok authorization code response - redirect to http://localhost:3000/unused-dummy-atxp-callback?code=eaa693496e7a5ab0bbf9ecd8201ca378f802f3a8d652c425deef0778dbec1db2&state=SpVYvzn5bLIbVDCTyZpFIbbK8-01ROxiSgGTJXkLmRw
+[atxp] Handling authorization code callback: http://localhost:3000/unused-dummy-atxp-callback?code=eaa693496e7a5ab0bbf9ecd8201ca378f802f3a8d652c425deef0778dbec1db2&state=SpVYvzn5bLIbVDCTyZpFIbbK8-01ROxiSgGTJXkLmRw
+[atxp] Getting PKCE values for user: atxp:tRwEwUc5CYhmPPa5NfZgB, state: SpVYvzn5bLIbVDCTyZpFIbbK8-01ROxiSgGTJXkLmRw
+[atxp] Saving new access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/atxp
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/atxp
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+ATXP client created successfully
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/atxp
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/atxp
+ATXP call failed for list_agents: Error: Error POSTing to endpoint (HTTP 402): {"jsonrpc":"2.0","error":{"code":-32001,"message":"Payment required - ATXP payment validation failed"},"id":1}
+MCP tool call failed for list_agents: Error: Error POSTing to endpoint (HTTP 402): {"jsonrpc":"2.0","error":{"code":-32001,"message":"Payment required - ATXP payment validation failed"},"id":1}
+List agents error: Error: Error POSTing to endpoint (HTTP 402): {"jsonrpc":"2.0","error":{"code":-32001,"message":"Payment required - ATXP payment validation failed"},"id":1}
+11:02:14 PM [express] GET /api/agents 500 in 2094ms :: {"error":"Error POSTing to endpoint (HTTP 402)…
