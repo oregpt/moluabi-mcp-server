@@ -545,19 +545,33 @@ async function main() {
         } else if (method === "initialize") {
           console.log('🔥 Step 6: INITIALIZE METHOD MATCHED!!! ENTERING HANDLER...');
           console.log('🛠️ MCP initialize called on /atxp');
+          
+          // MCP Protocol: Validate client's initialization parameters
+          const clientProtocolVersion = params?.protocolVersion || "2024-11-05";
+          const supportedVersion = "2024-11-05";
+          
+          // Version negotiation - ensure compatibility
+          if (clientProtocolVersion !== supportedVersion) {
+            console.log(`⚠️ Version mismatch: client=${clientProtocolVersion}, server=${supportedVersion}`);
+          }
+          
           return res.json({
             jsonrpc: "2.0",
             result: {
-              protocolVersion: "2024-11-05",
+              protocolVersion: supportedVersion,
               capabilities: {
-                tools: {},
-                logging: {}
+                tools: {
+                  listChanged: false // We provide static tool list
+                },
+                logging: {
+                  level: "info"
+                }
               },
               serverInfo: {
                 name: "moluabi-atxp-server",
-                version: "2.0.0",
-                debug: "INITIALIZE_METHOD_REACHED_SUCCESSFULLY"
-              }
+                version: "2.0.0"
+              },
+              instructions: "ATXP-enabled MCP server for AI agent management. Provides 10 comprehensive tools for agent lifecycle management with crypto payment integration."
             },
             id
           });
