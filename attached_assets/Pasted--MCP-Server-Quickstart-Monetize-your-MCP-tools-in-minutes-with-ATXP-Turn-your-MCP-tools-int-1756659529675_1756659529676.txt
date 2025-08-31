@@ -1,0 +1,124 @@
+# MCP Server Quickstart
+
+> Monetize your MCP tools in minutes with ATXP
+
+Turn your MCP tools into a revenue stream with pay‑per‑call pricing—without building billing, authentication, or account management. ATXP lets you require payment before execution, so you get predictable income with minimal overhead.
+
+* **Earn per-use**: Charge per tool call with flexible pricing.
+* **Programmatic enforcement**: Require payment before execution with a single middleware and helper.
+* **No user accounts or API keys**: Agents pay from their own wallets; you don't manage users, keys, or invoices.
+* **Works everywhere**: Compatible with major hosts (e.g., Claude, Goose), local dev, and your own infrastructure.
+
+## Build your first monetized MCP server
+
+<Steps>
+  <Step title="Install the library">
+    Install the [ATXP server SDK](https://www.npmjs.com/package/@atxp/server) in your project:
+
+    ```bash
+    npm install @atxp/server
+    ```
+  </Step>
+
+  <Step title="Set up your wallet">
+    <a href="/server/create_a_wallet" target="_blank">Create an ATXP wallet</a> and set your wallet ID in an environment variable. The best way to do this is to create a `.env` file in the root of your project and add the following line:
+
+    ```bash .env lines
+    PAYMENT_DESTINATION=<YOUR_WALLET_ID>
+    ```
+
+    <Warning>
+      Never commit wallet address to version control. It is a good idea to add your `.env` to your `.gitignore` file to prevent it from being committed.
+
+      ```bash
+      echo .env >> .gitignore
+      ```
+    </Warning>
+  </Step>
+
+  <Step title="Integrate with your MCP server">
+    Add the ATXP Express middleware to your MCP server:
+
+    ```typescript
+    // Import the ATXP SDK and other dependencies
+    import { atxpServer, requirePayment } from '@atxp/server';  // [!code ++]
+    import BigNumber from "bignumber.js"; // [!code ++]
+
+    // Create your MCP server
+    const server = new McpServer();
+
+    // Define your MCP tools...
+    // server.tool(...);
+
+    // Create and configure your Express server
+    const app = express()
+    app.use(express.json())
+
+    // Read your wallet ID from the environment variable
+    const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION // [!code ++]
+
+    // Add the ATXP payment middleware  // [!code ++]
+    app.use(atxpServer({ // [!code ++]
+      destination: PAYMENT_DESTINATION, // Your wallet ID  // [!code ++]
+      payeeName: 'Your Server Name',    // The name of your MCP server  // [!code ++]
+    }))  // [!code ++]
+
+    // Other MCP server configuration...
+    ```
+  </Step>
+
+  <Step title="Add payment requirements to tools">
+    In each MCP tool exposed by your server that you want to charge per-use for, require payment before tool execution:
+
+    ```typescript
+    server.tool(
+      "upcase",
+      "Convert the provided string to uppercase",
+      {
+        text: z.string().describe("The text to convert to uppercase"),
+      },
+      async ({ text }) => {
+        // Require payment (in USDC) for the tool call  // [!code ++]
+        await requirePayment({price: BigNumber(0.01)}); // [!code ++]
+
+        // Your tool's logic
+        const result = text.toUpperCase();
+
+        // Return the result of the tool call
+        return {
+          content: [
+            {
+              type: "text",
+              text: result,
+            },
+          ],
+        };
+      }
+    );
+    ```
+  </Step>
+
+  <Step title="Connect to your MCP server">
+    Deploy your changes and connect to your MCP server with a host such as [Goose](https://block.github.io/goose/) or [Claude](https://claude.ai) to start paying for tool calls.
+
+    <Tip>
+      Running your MCP server locally? See on [how to connect to a local MCP server](/server/integration/tutorial#run-the-mcp-server).
+    </Tip>
+  </Step>
+</Steps>
+
+## Resources
+
+<CardGroup cols={3}>
+  <Card title="Monetized MCP tutorial" icon="messages-dollar" href="/server/integration/tutorial">
+    Follow a complete tutorial to build your first paid MCP server with ATXP integration, from initial setup to live deployment.
+  </Card>
+
+  <Card title="Build an agent using paid MCP servers" icon="robot" href="/client/index">
+    Get started building an ATXP‑powered agent that pays for MCP server tool calls.
+  </Card>
+
+  <Card title="Join the community" icon="discord" href="https://discord.gg/atxp">
+    Join the ATXP community on Discord to ask questions, share your projects, and get help from the team.
+  </Card>
+</CardGroup>
