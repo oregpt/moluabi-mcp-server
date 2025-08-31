@@ -73,15 +73,18 @@ async function main() {
     });
 
     app.post('/mcp/call', express.json(), async (req, res) => {
+      // Accept both "tool" and "name" parameters for backward compatibility
+      const toolName = req.body.tool || req.body.name;
+      const args = req.body.arguments;
+      
       try {
-        const { tool, arguments: args } = req.body;
         
-        if (!tool) {
-          return res.status(400).json({ error: 'Missing tool parameter' });
+        if (!toolName) {
+          return res.status(400).json({ error: 'Missing tool/name parameter' });
         }
 
         // Validate arguments using the same validation as MCP
-        validateToolArguments(tool, args);
+        validateToolArguments(toolName, args);
 
         // All tools now use API key authentication
         if (!args.apiKey) {
@@ -94,7 +97,7 @@ async function main() {
         let result;
 
         // Handle tool calls with new API key authentication
-        switch (tool) {
+        switch (toolName) {
           case "create_agent":
             result = await handleCreateAgent(args);
             break;
@@ -243,7 +246,7 @@ async function main() {
             break;
 
           default:
-            return res.status(400).json({ error: `Unknown tool: ${tool}` });
+            return res.status(400).json({ error: `Unknown tool: ${toolName}` });
         }
 
         // Record usage if payment system is enabled and operation was successful
@@ -251,7 +254,7 @@ async function main() {
           try {
             const keyValidation = await platformClient.validateAPIKey(args.apiKey);
             if (keyValidation.valid && keyValidation.userId) {
-              await paymentManager.recordUsage(keyValidation.userId, tool, result.cost);
+              await paymentManager.recordUsage(keyValidation.userId, toolName, result.cost);
             }
           } catch (error) {
             console.warn('⚠️ Failed to record usage:', error);
@@ -261,7 +264,7 @@ async function main() {
         res.json(result);
 
       } catch (error) {
-        console.error(`❌ Error executing HTTP tool ${req.body.tool}:`, error);
+        console.error(`❌ Error executing HTTP tool ${toolName}:`, error);
         res.status(500).json({
           error: 'Internal server error',
           message: error instanceof Error ? error.message : 'Unknown error'
