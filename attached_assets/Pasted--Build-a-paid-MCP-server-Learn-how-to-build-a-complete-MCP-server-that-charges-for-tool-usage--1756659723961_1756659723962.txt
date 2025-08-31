@@ -1,0 +1,402 @@
+# Build a paid MCP server
+
+> Learn how to build a complete MCP server that charges for tool usage using ATXP payments
+
+## Overview
+
+This page provides a complete, working example of a basic MCP server that uses ATXP to charge for tool calls. This code for this example implementation can be found at [novellum-ai/atxp-minimal-demo](https://github.com/novellum-ai/atxp-minimal-demo).
+
+## Project setup
+
+In this tutorial, we'll build a TypeScript MCP server that exposes two tools that can only be called after a successful payment is made using ATXP. We'll use [Express](https://expressjs.com/) to build a streamable HTTP MCP server and run it locally using [ngrok](https://ngrok.com/) to enable us to connect to it from [Goose](https://block.github.io/goose/).
+
+Our MCP server will expose a simple addition tool that adds two numbers together, with each calculation costing 0.01 USDC.
+
+### Initialize the project
+
+First, we need to initialize a new project. We'll call it `atxp-math-server` and intialize a new Node.js project.
+
+```bash
+mkdir atxp-math-server
+cd atxp-math-server
+
+npm init -y
+```
+
+### Install dependencies
+
+We need to install a few dependencies:
+
+```bash
+npm install express @modelcontextprotocol/sdk zod dotenv bignumber --save
+```
+
+We also need to install the [ATXP server SDK](https://npmjs.com/package/@atxp/server):
+
+```bash
+npm install @atxp/server --save
+```
+
+Because we're using TypeScript, we need to install a few extra development dependencies:
+
+```bash
+npm install typescript tsx @types/express @types/node --save-dev
+```
+
+### Configure the project
+
+Before we can start writing code, we need to configure our project.
+
+First, we need to create a `tsconfig.json` file with the following content at the root of our project to configure the TypeScript compiler.
+
+```json tsconfig.json lines
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "Node16",
+      "moduleResolution": "Node16",
+      "outDir": "./build",
+      "rootDir": "./src",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
+}
+```
+
+We also need to modify our project's `package.json` file. We'll add a few scripts to make it easier to build and run our project and set some project build settings.
+
+```json package.json lines
+{
+    "name": "atxp-math-server",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "build": "tsc && chmod 755 build/index.js", // [!code ++]
+        "start": "node build/index.js", // [!code ++]
+        "dev": "tsx --watch src/index.ts", // [!code ++]
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "files": [ // [!code ++]
+        "build" // [!code ++]
+    ], // [!code ++]
+    "bin": { // [!code ++]
+        "atxp-math-server": "build/index.js" // [!code ++]
+    }, // [!code ++]
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs", // [!code --]
+    "type": "module", // [!code ++]
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.17.1",
+        "express": "^5.1.0",
+        "zod": "^3.25.76",
+        "dotenv": "^17.2.1",
+        "@atxp/server": "^1.0.0"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.3",
+        "@types/node": "^24.2.0",
+        "typescript": "^5.9.2"
+    }
+}
+```
+
+## Set up your ATXP wallet
+
+In order to receive payments, you need to create an ATXP wallet. This wallet will be used to receive payments in USDC when your MCP server's tools are called.
+
+### Create an ATXP wallet
+
+If you don't have an ATXP wallet yet, <a href="/server/create_a_wallet" target="_blank">create one</a> and copy your wallet address.
+
+### Store wallet address in an environment variable
+
+In order to use your wallet address in your MCP server, you need to set it in an environment variable. The best way to do this is to create a `.env` file in the root of your project and add the following line:
+
+```bash .env lines
+PAYMENT_DESTINATION=<YOUR_WALLET_ADDRESS>
+```
+
+<Warning>
+  Never commit wallet address to version control. It is a good idea to add your `.env` to your `.gitignore` file to prevent it from being committed.
+
+  ```bash
+  echo .env >> .gitignore
+  ```
+</Warning>
+
+## Develop the MCP server
+
+We're ready to start coding our MCP server now. Let's start by creating our source code directory and server code file.
+
+```bash
+mkdir src
+touch src/index.ts
+```
+
+### Set up Express
+
+We'll use Express to build a streamable HTTP MCP server. To do this, we'll need the following code in our `index.ts` file:
+
+```typescript index.ts lines
+import express, { Request, Response } from "express";
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
+
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+
+// Setup routes for the server
+const setupServer = async () => {
+  await server.connect(transport);
+};
+
+// Setup the URL endpoint that will handle MCP requests
+app.post('/', async (req: Request, res: Response) => {
+  console.log('Received MCP request:', req.body);
+  try {
+      await transport.handleRequest(req, res, req.body);
+  } catch (error) {
+    console.error('Error handling MCP request:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'Internal server error',
+        },
+        id: null,
+      });
+    }
+  }
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+setupServer().then(() => {
+  app.listen(PORT, () => {
+    console.log(`MCP Streamable HTTP Server listening on port ${PORT}`);
+  });
+}).catch(error => {
+  console.error('Failed to set up the server:', error);
+  process.exit(1);
+});
+```
+
+At this point, we should be able to build our MCP server without errors by running `npm run build`. We can even start it locally by running `npm run start` or `npm run dev` to start it in development mode. However, we haven't defined any tools yet, so it won't be very useful.
+
+### Define the MCP tools
+
+The first tool we'll add to our MCP server is the *addition* tool. This tool will take two numbers and return their sum.
+
+```typescript index.ts lines
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+
+// Create our addition tool // [!code ++]
+server.tool( // [!code ++]
+  "add", // [!code ++]
+  "Use this tool to add two numbers together.", // [!code ++]
+  { // [!code ++]
+    a: z.number().describe("The first number to add"), // [!code ++]
+    b: z.number().describe("The second number to add"), // [!code ++]
+  }, // [!code ++]
+  async ({ a, b }) => { // [!code ++]
+    return { // [!code ++]
+      content: [ // [!code ++]
+        { // [!code ++]
+          type: "text", // [!code ++]
+          text: `${a + b}`, // [!code ++]
+        }, // [!code ++]
+      ], // [!code ++]
+    }; // [!code ++]
+  } // [!code ++]
+); // [!code ++]
+
+// Create our Express application
+const app = express();
+```
+
+We can now build our MCP server using `npm run build` to verify that it compiles without errors. At this point, we *could* connect a client like [Goose](https://block.github.io/goose/) to it and test that our tool does in fact add two numbers together, but it will be more exciting to see it in action after we've integrated payments. [Skip forward a few steps](/server/integration/tutorial#use-the-mcp-server) to see how to connect to our MCP server and test it out if you want to try it out without payments.
+
+### Add payment requirements to tools
+
+We've already installed the ATXP server SDK, so we can use it to add payment requirements to our tools. First, we need to import the necessary functions from the SDK.
+
+```typescript index.ts lines
+import express, { Request, Response } from "express";
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+
+import { atxpServer, requirePayment } from '@atxp/server'; // [!code ++]
+import BigNumber from "bignumber.js"; // [!code ++]
+
+// Create our McpServer instance with the appropriate name and version
+const server = new McpServer({
+  name: "atxp-math-server",
+  version: "1.0.0",
+});
+```
+
+We'll also need to set our wallet address in an environment variable. This is the wallet that payments to use the tool will be sent to.
+
+```bash
+export PAYMENT_DESTINATION=<YOUR_WALLET_ADDRESS>
+```
+
+In our MCP server code, we'll read this wallet address from the environment variable.
+
+```typescript index.ts lines
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Read your wallet address from the environment variable // [!code ++]
+const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION // [!code ++]
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+```
+
+The ATXP server SDK provides Express middleware that must be used to add payment capabilities to our MCP server. We need to configure our Express application to use this middleware.
+
+```typescript index.ts lines
+// Create our Express application
+const app = express();
+
+// Configure our Express application to parse JSON bodies
+app.use(express.json());
+
+// Read your wallet address from the environment variable
+const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION
+
+// Configure our Express application to use the ATXP middleware
+app.use(atxpServer({ // [!code ++]
+  destination: PAYMENT_DESTINATION, // [!code ++]
+  payeeName: 'Add', // [!code ++]
+}))
+
+// Create our transport instance
+const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined, // set to undefined for stateless servers
+});
+```
+
+Finally, we need to modify our tool definition to require a payment before the tool is executed. We will do this by the `requirePayment` function from the ATXP server SDK. This function takes a `price` parameter that specifies the amount of USDC to charge for the tool call.
+
+```typescript index.ts lines
+// Create our addition tool
+server.tool( 
+  "add", 
+  "Use this tool to add two numbers together.", 
+  { 
+    a: z.number().describe("The first number to add"), 
+    b: z.number().describe("The second number to add"), 
+  }, 
+  async ({ a, b }) => { 
+    // Require payment (in USDC) for the tool call // [!code ++]
+    await requirePayment({price: BigNumber(0.01)}); // [!code ++]
+    return { 
+      content: [ 
+        { 
+          type: "text", 
+          text: `${a + b}`, 
+        }, 
+      ], 
+    }; 
+  } 
+);
+```
+
+Our MCP server is now ready to be used and will require a payment of \$0.01 USDC for each call to the `add` tool. Now let's test the payment integration by running the MCP server locally and connecting to it using [Goose](https://block.github.io/goose/).
+
+## Testing the MCP server
+
+In order to test our MCP server locally, we need to run it and expose it to the internet. We'll use [ngrok](https://ngrok.com/) to do this. ngrok is a tool that creates a secure tunnel to your local server so that it can be accessed from the internet. This is useful for testing local development servers before deploying them to a production environment. If you don't have ngrok installed, you can install it and use it for free by following [these instructions](https://ngrok.com/docs/getting-started/#2-install-the-ngrok-agent-cli).
+
+### Run the MCP server
+
+We will need two terminal sessions; one to run the MCP server and one to use ngrok to expose the MCP server to the internet.
+
+In the first terminal session, we'll run the MCP server, which will start listening on port 3000.
+
+```bash
+npm run start
+```
+
+In the second terminal session, we'll use ngrok to expose the MCP server to the internet so that we can connect to it using [Goose](https://block.github.io/goose/). We'll use the `http` protocol and the port that the MCP server is listening on (3000).
+
+```bash
+ngrok http http://127.0.0.1:3000
+```
+
+This ngrok command will open a secure tunnel to your local MCP server and print out a URL that you can use to connect to it. The URL you are looking for is the `https` URL. If you are using a free ngrok account (or are not authenticated with ngrok), the URL you are looking for will be something like `https://<random-id>.ngrok-free.app`.
+
+### Connect to the MCP server
+
+Now that we have the MCP server running and ngrok has exposed it to the internet, we can connect to it using [Goose](https://block.github.io/goose/).
+
+After you've set up Goose, you can connect to your local MCP server through the ngrok tunnel URL by going to **Extensions** in the Goose sidebar and clicking **Add custom extension**.
+
+Provide a name for your Goose extension (e.g. "ATXP Math Server"), select **Streamable HTTP** as the type of extension, and paste the ngrok tunnel URL into the **Endpoint** field.
+
+Then click **Add Extension** to save your new extension. Your browser will open a new tab in which you must authorize an ATXP wallet to pay for using your MCP server's tool. Once you've authorized the wallet, you are ready to have your configured LLM use, and pay for, your MCP server's tool.
+
+### Go through the payment flow
+
+Now that you've connected Goose to your locally running MCP server, you can test the payment flow by sending a message in Goose such as "Add 1 and 2".
+
+Goose will show you a message that the tool is being called and that you need to pay make a payment at the supplied URL in order to use the tool.
+
+Click on the URL to open the payment page in a new tab. Complete the payment in your browser and then return to Goose. Upon succesful payment, your browser will show you a link to where you can see the successful transaction on the Solana block chain.
+
+Send another message to your configured LLM such as "I have completed the payment. Try again." and you'll see that the tool call is successful.
+
+<Check>
+  Congratulations! You've successfully built and tested a paid MCP server using ATXP. You can now charge for tool usage in your own MCP servers.
+</Check>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore the complete API documentation with examples.
+  </Card>
+
+  <Card title="Join the community" icon="discord" href="https://discord.gg/atxp">
+    Join the ATXP community on Discord to ask questions, share your projects, and get help from the team.
+  </Card>
+</CardGroup>
