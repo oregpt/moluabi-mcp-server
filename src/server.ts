@@ -45,6 +45,22 @@ async function main() {
     const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
     if (PAYMENT_DESTINATION && paymentMode === 'atxp') {
       console.log('🔧 Setting up ATXP middleware for payment context...');
+      
+      // CRITICAL FIX: Ensure JSON parsing happens BEFORE ATXP middleware
+      app.use('/atxp', express.json());
+      
+      // Add debug middleware to see what requests hit /atxp
+      app.use('/atxp', (req, res, next) => {
+        console.log('🔥🔥🔥 ATXP MIDDLEWARE INTERCEPTED REQUEST 🔥🔥🔥');
+        console.log('🔥 URL:', req.url);
+        console.log('🔥 Method:', req.method);
+        console.log('🔥 Headers:', JSON.stringify(req.headers, null, 2));
+        console.log('🔥 Raw Body (AFTER JSON parsing):', JSON.stringify(req.body, null, 2));
+        console.log('🔥 Content-Type:', req.get('Content-Type'));
+        console.log('🔥🔥🔥 CONTINUING TO ATXP SERVER... 🔥🔥🔥');
+        next();
+      });
+      
       app.use('/atxp', atxpServer({
         destination: PAYMENT_DESTINATION,
         payeeName: 'MoluAbi MCP Server',
