@@ -1,0 +1,95 @@
+Detailed Explanation for MCP Team: ATXP SDK Integration Issue
+Problem Summary
+The MoluAbi-Client web application's ATXP SDK integration fails when calling the MoluAbi MCP server at https://moluabi-mcp-server.replit.app. While the server correctly supports both legacy and standard MCP formats when called directly via HTTP, the ATXP SDK cannot successfully communicate with it.
+
+Technical Analysis
+1. Server Compatibility Verification
+We've confirmed that your MCP server fully supports both MCP formats:
+
+✅ Legacy Format Works:
+
+curl -X POST https://moluabi-mcp-server.replit.app/mcp/call \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "get_pricing", "arguments": {"apiKey": "mab_test"}}'
+# Returns: {"success":true,"pricing":{...},"cost":0.001,"operation":"get_pricing"}
+✅ Standard Format Works:
+
+curl -X POST https://moluabi-mcp-server.replit.app/mcp/call \
+  -H "Content-Type: application/json" \
+  -d '{"name": "get_pricing", "arguments": {"apiKey": "mab_test"}}'
+# Returns: {"success":true,"pricing":{...},"cost":0.001,"operation":"get_pricing"}
+2. ATXP SDK Behavior Analysis
+When the ATXP SDK attempts to call your server, it exhibits unexpected routing behavior:
+
+Expected Behavior:
+
+ATXP SDK should POST to: https://moluabi-mcp-server.replit.app/mcp/call
+With payload: {"name": "tool_name", "arguments": {...}}
+Actual Behavior:
+
+ATXP SDK POSTs to: https://moluabi-mcp-server.replit.app/ (root endpoint)
+Server responds: HTTP 404 - Cannot POST /
+3. Root Cause: Server Architecture Difference
+The issue stems from different MCP server architectures:
+
+Working ATXP Servers:
+
+https://image.mcp.atxp.ai
+https://filestore.mcp.atxp.ai
+These handle MCP calls directly at the root endpoint /
+ATXP SDK works perfectly with these
+MoluAbi MCP Server:
+
+https://moluabi-mcp-server.replit.app
+Handles MCP calls at the sub-endpoint /mcp/call
+ATXP SDK cannot reach this endpoint
+4. ATXP SDK Configuration Tested
+We've verified our client configuration matches working examples exactly:
+
+const client = await atxpClient({
+  mcpServer: 'https://moluabi-mcp-server.replit.app/mcp/call',
+  account: atxpAccount,
+  allowedAuthorizationServers: [
+    'https://auth.atxp.ai',
+    'https://atxp-accounts-staging.onrender.com/',
+    'http://localhost:5000'
+  ],
+  logger: new ConsoleLogger({ level: LogLevel.DEBUG })
+});
+const result = await client.callTool({
+  name: toolName,
+  arguments: toolArguments,
+});
+Issue: Even when specifying /mcp/call in the mcpServer URL, the ATXP SDK still POSTs to the root / endpoint.
+
+Solution Required
+Option A: Configure Root Endpoint (Recommended)
+Modify your MCP server to also handle MCP calls at the root endpoint /:
+
+// Add this route to your Express server
+app.post('/', (req, res) => {
+  // Route to existing /mcp/call handler
+  req.url = '/mcp/call';
+  // Forward to existing handler
+  mcpCallHandler(req, res);
+});
+Option B: ATXP SDK Path Configuration
+Investigate if there's an ATXP SDK configuration option to specify custom MCP endpoints. The current SDK appears to ignore URL paths and only use the domain.
+
+Verification Steps
+Once you implement Option A, we can verify the fix:
+
+Test Direct Root Call:
+
+curl -X POST https://moluabi-mcp-server.replit.app/ \
+  -H "Content-Type: application/json" \
+  -d '{"name": "get_pricing", "arguments": {"apiKey": "mab_test"}}'
+Test ATXP SDK Integration:
+Our client application should then work seamlessly with pure ATXP integration.
+
+Current Status
+✅ Client Implementation: Complete and correct
+✅ Server MCP Support: Working perfectly
+❌ ATXP SDK Routing: Blocked by endpoint architecture
+🎯 Blocker: Server needs root endpoint handling
+The client-side ATXP integration is fully implemented and ready. Once the server supports MCP calls at the root endpoint, the entire flow will work end-to-end without any additional client changes needed.
