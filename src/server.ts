@@ -291,7 +291,7 @@ async function main() {
     app.get('/.well-known/oauth-protected-resource', (req, res) => {
       console.log('🔐 OAuth resource metadata requested (standard path)');
       res.json({
-        resource: "https://moluabi-mcp-server.replit.app/atxp",
+        resource: "https://moluabi-mcp-server.replit.app",
         authorization_servers: ["https://auth.atxp.ai"],
         authorization_server: "https://auth.atxp.ai",
         issuer: "https://auth.atxp.ai",
@@ -311,7 +311,7 @@ async function main() {
     app.get('/.well-known/oauth-protected-resource/atxp', (req, res) => {
       console.log('🔐 OAuth resource metadata requested for ATXP (legacy path)');
       res.json({
-        resource: "https://moluabi-mcp-server.replit.app/atxp",
+        resource: "https://moluabi-mcp-server.replit.app",
         authorization_servers: ["https://auth.atxp.ai"],
         authorization_server: "https://auth.atxp.ai",
         issuer: "https://auth.atxp.ai",
