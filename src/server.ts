@@ -584,7 +584,24 @@ async function main() {
       }
       
       try {
-        if (method === "tools/list") {
+        if (method === "initialize") {
+          console.log('🛠️ MCP initialize called on /atxp');
+          return res.json({
+            jsonrpc: "2.0",
+            result: {
+              protocolVersion: "2024-11-05",
+              capabilities: {
+                tools: {},
+                logging: {}
+              },
+              serverInfo: {
+                name: "moluabi-atxp-server",
+                version: "2.0.0"
+              }
+            },
+            id
+          });
+        } else if (method === "tools/list") {
           // Return ATXP-compatible tools list
           const tools = createAgentTools();
           return res.json({

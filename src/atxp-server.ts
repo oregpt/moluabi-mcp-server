@@ -2,8 +2,9 @@
 
 import express, { Request, Response } from "express";
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { atxpServer, requirePayment } from '@atxp/server';
 import BigNumber from "bignumber.js";
 
@@ -14,12 +15,9 @@ import {
   handleCreateAgent,
   handleListAgents,
   handleGetAgent,
-  handleUpdateAgent,
-  handleDeleteAgent,
-  handlePromptAgent,
-  handleAddUserToAgent,
-  handleRemoveUserFromAgent
+  handlePromptAgent
 } from './tools/agent-tools.js';
+import { createAgentTools } from './tools/agent-tools.js';
 
 console.log('🚀 MoluAbi ATXP Server starting...');
 
@@ -27,374 +25,123 @@ console.log('🚀 MoluAbi ATXP Server starting...');
 const agentService = new AgentService();
 const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://app.moluabi.com');
 
-// Create our McpServer instance
-const server = new McpServer({
-  name: "moluabi-atxp-server",
-  version: "2.0.0",
+// Create our MCP Server instance with proper schema
+const server = new Server(
+  {
+    name: "moluabi-atxp-server",
+    version: "2.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
+
+// Create agent tools with ATXP payment integration
+const { tools } = createAgentTools();
+
+// Handle tool listing requests (required for ATXP SDK)
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  console.log('📋 MCP list_tools called');
+  return { tools };
 });
 
-// ATXP Tool Registration with Payments
-// Each tool requires payment before execution
-
-server.tool(
-  "create_agent",
-  "Create a new AI agent with specified configuration",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    name: z.string().describe("Name of the agent"),
-    description: z.string().describe("Description of what the agent does"),
-    model: z.string().optional().describe("AI model to use (gpt-4, gpt-3.5-turbo, claude-3)"),
-    systemPrompt: z.string().optional().describe("System prompt for the agent"),
-  },
-  async ({ apiKey, name, description, model, systemPrompt }) => {
-    // Require payment for agent creation
-    await requirePayment({price: BigNumber(0.05)});
+// Handle tool execution requests with ATXP payment integration
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  console.log(`🔧 ATXP tool call: ${name}`);
+  
+  try {
+    let result;
+    let paymentAmount = BigNumber(0);
     
-    try {
-      const result = await handleCreateAgent({ apiKey, name, description, model, systemPrompt });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
-
-server.tool(
-  "list_agents",
-  "List all agents accessible to the user",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-  },
-  async ({ apiKey }) => {
-    await requirePayment({price: BigNumber(0.001)});
+    // Define payment amounts for each tool
+    const toolPricing: Record<string, string> = {
+      "create_agent": "0.05",
+      "list_agents": "0.001", 
+      "get_agent": "0.001",
+      "update_agent": "0.02",
+      "delete_agent": "0.01",
+      "prompt_agent": "0.01",
+      "add_user_to_agent": "0.005",
+      "remove_user_from_agent": "0.005",
+      "get_usage_report": "0.002",
+      "get_pricing": "0.001"
+    };
     
-    try {
-      const result = await handleListAgents({ apiKey });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
+    if (toolPricing[name]) {
+      paymentAmount = BigNumber(toolPricing[name]);
+      // Require payment before tool execution
+      await requirePayment({price: paymentAmount});
     }
-  }
-);
-
-server.tool(
-  "get_agent",
-  "Get details of a specific agent",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent to retrieve"),
-  },
-  async ({ apiKey, agentId }) => {
-    await requirePayment({price: BigNumber(0.001)});
     
-    try {
-      const result = await handleGetAgent({ apiKey, agentId });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
+    // Execute the tool logic based on name
+    switch (name) {
+      case "create_agent":
+        result = await handleCreateAgent(args);
+        break;
+      case "list_agents":
+        result = await handleListAgents(args);
+        break;
+      case "get_agent":
+        result = await handleGetAgent(args);
+        break;
+      case "prompt_agent":
+        result = await handlePromptAgent(args);
+        break;
+      case "get_pricing":
+        result = await agentService.getPricing();
+        result = {
+          success: true,
+          pricing: result,
+          cost: parseFloat(paymentAmount.toString()),
+          operation: "get_pricing"
+        };
+        break;
+      case "get_usage_report":
+        result = await platformClient.getUsageReport((args as any).apiKey, (args as any).days);
+        result = {
+          success: true,
+          report: result,
+          cost: parseFloat(paymentAmount.toString()),
+          operation: "get_usage_report"
+        };
+        break;
+      default:
+        throw new Error(`Tool not implemented: ${name}`);
     }
-  }
-);
-
-server.tool(
-  "update_agent",
-  "Update an existing agent's configuration",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent to update"),
-    name: z.string().optional().describe("New name for the agent"),
-    description: z.string().optional().describe("New description for the agent"),
-    model: z.string().optional().describe("New AI model to use"),
-    systemPrompt: z.string().optional().describe("New system prompt for the agent"),
-  },
-  async ({ apiKey, agentId, name, description, model, systemPrompt }) => {
-    await requirePayment({price: BigNumber(0.02)});
     
-    try {
-      const result = await handleUpdateAgent({ apiKey, agentId, name, description, model, systemPrompt });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
-
-server.tool(
-  "delete_agent",
-  "Delete an agent permanently",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent to delete"),
-  },
-  async ({ apiKey, agentId }) => {
-    await requirePayment({price: BigNumber(0.01)});
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
     
-    try {
-      const result = await handleDeleteAgent({ apiKey, agentId });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
+  } catch (error) {
+    console.error(`❌ Error executing tool ${name}:`, error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        },
+      ],
+    };
   }
-);
+});
 
-server.tool(
-  "prompt_agent",
-  "Send a message to an agent and get a response",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent to prompt"),
-    message: z.string().describe("Message to send to the agent"),
-    model: z.string().optional().describe("Override the agent's default model"),
-  },
-  async ({ apiKey, agentId, message, model }) => {
-    await requirePayment({price: BigNumber(0.01)});
-    
-    try {
-      const result = await handlePromptAgent({ apiKey, agentId, message, model });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
 
-server.tool(
-  "add_user_to_agent",
-  "Grant a user access to an agent",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent"),
-    userEmail: z.string().describe("Email of the user to grant access"),
-  },
-  async ({ apiKey, agentId, userEmail }) => {
-    await requirePayment({price: BigNumber(0.005)});
-    
-    try {
-      const result = await handleAddUserToAgent({ apiKey, agentId, userEmail });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
 
-server.tool(
-  "remove_user_from_agent",
-  "Revoke a user's access to an agent",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    agentId: z.number().describe("ID of the agent"),
-    userEmail: z.string().describe("Email of the user to revoke access"),
-  },
-  async ({ apiKey, agentId, userEmail }) => {
-    await requirePayment({price: BigNumber(0.005)});
-    
-    try {
-      const result = await handleRemoveUserFromAgent({ apiKey, agentId, userEmail });
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
 
-server.tool(
-  "get_usage_report",
-  "Get usage statistics and billing information",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-    days: z.number().optional().describe("Number of days to include in report (default: 30)"),
-  },
-  async ({ apiKey, days }) => {
-    await requirePayment({price: BigNumber(0.002)});
-    
-    try {
-      const result = await platformClient.getUsageReport(apiKey, days);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              report: result,
-              cost: 0.002,
-              operation: "get_usage_report"
-            }, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
 
-server.tool(
-  "get_pricing",
-  "Get current pricing information for all operations",
-  {
-    apiKey: z.string().describe("ATXP authentication will handle payment"),
-  },
-  async ({ apiKey }) => {
-    await requirePayment({price: BigNumber(0.001)});
-    
-    try {
-      const pricing = await agentService.getPricing();
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              pricing,
-              cost: 0.001,
-              operation: "get_pricing"
-            }, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-      };
-    }
-  }
-);
+
+
+
+
 
 // Create Express application
 const app = express();
@@ -457,8 +204,42 @@ app.post('/', async (req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
+  // Handle specific MCP methods that ATXP SDK requires
+  const { jsonrpc, method, params, id } = req.body;
+  
+  if (!jsonrpc || jsonrpc !== "2.0") {
+    return res.status(400).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32600,
+        message: "Invalid JSON-RPC request"
+      },
+      id: id || null
+    });
+  }
+  
   try {
-    await transport.handleRequest(req, res, req.body);
+    if (method === "initialize") {
+      console.log('🛠️ MCP initialize called');
+      return res.json({
+        jsonrpc: "2.0",
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: {
+            tools: {},
+            logging: {}
+          },
+          serverInfo: {
+            name: "moluabi-atxp-server",
+            version: "2.0.0"
+          }
+        },
+        id
+      });
+    } else {
+      // Let the MCP transport handle other methods (tools/list, tools/call)
+      await transport.handleRequest(req, res, req.body);
+    }
   } catch (error) {
     console.error('❌ Error handling ATXP MCP request:', error);
     if (!res.headersSent) {
@@ -475,7 +256,7 @@ app.post('/', async (req: Request, res: Response) => {
 });
 
 // Use port 8080 which is explicitly allowed by Replit
-const PORT = process.env.ATXP_PORT || 8080;
+const PORT = parseInt(process.env.ATXP_PORT || '8080', 10);
 setupServer().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 MoluAbi ATXP Server listening on 0.0.0.0:' + PORT);
