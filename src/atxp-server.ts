@@ -422,7 +422,7 @@ const transport = new StreamableHTTPServerTransport({
 });
 
 // Health check endpoint
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     service: 'MoluAbi ATXP Server',
@@ -431,6 +431,14 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     paymentDestination: PAYMENT_DESTINATION.substring(0, 8) + '...'
   });
+});
+
+// CORS preflight
+app.options('/', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.status(200).end();
 });
 
 // Setup server connection
@@ -442,6 +450,13 @@ const setupServer = async () => {
 // ATXP MCP endpoint - this is where ATXP SDK will connect
 app.post('/', async (req: Request, res: Response) => {
   console.log('🔄 ATXP MCP request received:', req.body);
+  
+  // Set proper headers for MCP protocol
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
   try {
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
