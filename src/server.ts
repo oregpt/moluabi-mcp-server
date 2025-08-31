@@ -280,13 +280,11 @@ async function main() {
       console.log('🔐 OAuth resource metadata requested for ATXP');
       res.json({
         resource: "https://moluabi-mcp-server.replit.app/atxp",
-        authorization_servers: [
-          {
-            issuer: "https://auth.atxp.ai",
-            authorization_endpoint: "https://auth.atxp.ai/oauth/authorize",
-            token_endpoint: "https://auth.atxp.ai/oauth/token"
-          }
-        ],
+        authorization_servers: ["https://auth.atxp.ai"],
+        authorization_server: "https://auth.atxp.ai",
+        issuer: "https://auth.atxp.ai",
+        authorization_endpoint: "https://auth.atxp.ai/oauth/authorize",
+        token_endpoint: "https://auth.atxp.ai/oauth/token",
         scopes_supported: ["mcp:tools", "mcp:read", "mcp:write"],
         token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
         resource_server_metadata: {
