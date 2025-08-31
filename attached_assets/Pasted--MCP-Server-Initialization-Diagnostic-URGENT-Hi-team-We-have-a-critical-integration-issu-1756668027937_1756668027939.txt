@@ -1,0 +1,203 @@
+# MCP Server Initialization Diagnostic - URGENT
+
+Hi team,
+
+We have a **critical integration issue** with our MCP server and ATXP SDK. A user has provided detailed diagnostics showing that while our free tier works perfectly, the ATXP integration is failing due to missing MCP protocol methods.
+
+## Current Issue Summary
+
+**What's Working ✅**
+- Free tier mode: Direct HTTP calls to `/mcp/call` work perfectly
+- All tools execute successfully (list_agents, create_agent, prompt_agent, etc.)
+- API authentication works correctly
+- Server returns proper JSON responses
+
+**What's Failing ❌**
+- ATXP SDK cannot establish connection to our server
+- **Critical Error:** `"Method not found: initialize"` when SDK tries to connect
+- ATXP endpoint at `/atxp` doesn't support MCP lifecycle methods
+
+## Technical Details from User Testing
+
+The user tested both endpoints:
+
+**✅ This works (free tier):**
+```bash
+curl -X POST https://moluabi-mcp-server.replit.app/mcp/call \
+-d '{"name":"list_agents","arguments":{"apiKey":"mab_..."}}'
+# Returns: agents list successfully
+```
+
+**❌ This fails (ATXP endpoint):**
+```bash
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'
+# Returns: {"error":{"code":-32601,"message":"Method not found: initialize"}}
+```
+
+**Key Finding:** Our `/atxp` endpoint accepts `tools/call` but **NOT** `initialize`
+
+## Critical Issue: Missing MCP Protocol Methods
+
+**The ATXP SDK Flow:**
+1. SDK connects to `https://moluabi-mcp-server.replit.app/atxp`
+2. Sends JSON-RPC initialize request: `{"jsonrpc":"2.0","method":"initialize","params":{...},"id":0}`
+3. **Our server responds:** `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found: initialize"},"id":0}`
+4. SDK fails and cannot proceed to tool calls
+
+**Question 1:** Why does our `/atxp` endpoint not support the `initialize` method?
+- Does our `/atxp` endpoint implement full MCP protocol or just tool calls?
+- Is there a difference in how we handle `/mcp/call` vs `/atxp` endpoints?
+- **Critical:** The ATXP SDK expects full MCP JSON-RPC protocol before making any tool calls
+
+## Endpoint Architecture Investigation
+
+**Question 2:** Please map out our current endpoint structure:
+- **`/mcp/call`** - What does this endpoint do? (Works perfectly with direct calls)
+- **`/atxp`** - What does this endpoint do? (Accepts `tools/call` but not `initialize`)
+- Are these two separate implementations or should they be unified?
+
+**Question 3:** MCP Protocol Compliance per Endpoint:
+- Does `/mcp/call` support full MCP JSON-RPC protocol?
+- Does `/atxp` support full MCP JSON-RPC protocol?
+- **Key Finding:** `/atxp` accepts `tools/call` but rejects `initialize` - this suggests partial MCP implementation
+
+## Required MCP Methods for ATXP Integration
+
+**Question 4:** Based on user testing, our `/atxp` endpoint needs to support these JSON-RPC methods:
+
+**Missing (Critical):**
+- [ ] `initialize` - **FAILING** with "Method not found" error
+- [ ] `list_tools` - SDK needs to discover available tools  
+- [ ] `list_resources` - If we have any resources
+- [ ] `list_prompts` - If we have any prompts
+
+**Partially Working:**
+- [?] `tools/call` - User confirms this method exists but requires ATXP auth
+
+**Question 5:** Do we properly implement session management?
+- Do we generate and return a session ID in the `Mcp-Session-Id` HTTP header during initialization?
+- Do we validate this session ID on subsequent requests?
+- Do we return a 404 when a session expires to trigger re-initialization?
+
+**If missing:** Implement session tracking using an in-memory store (Map/object) that associates session IDs with client connections.
+
+## Transport Configuration
+
+**Question 6:** What transport method does our `/atxp` endpoint use?
+- The user is making HTTP POST requests to `/atxp`
+- ATXP SDK expects Streamable HTTP transport
+- **Verify:** Is our `/atxp` endpoint properly configured for Streamable HTTP MCP transport?
+
+## Authentication Layer Analysis
+
+**Question 7:** Authentication behavior differences:
+- **Free tier (`/mcp/call`):** Works with API key in request body
+- **ATXP endpoint (`/atxp`):** Returns "Payment required - ATXP authentication missing"
+- **Critical:** How should ATXP authentication integrate with MCP protocol initialization?
+
+## Core MCP Protocol Implementation
+
+**Question 8:** Based on the user's error, please verify we implement these methods **specifically on the `/atxp` endpoint**:
+- [ ] `initialize` - **CRITICAL:** Currently returns -32601 "Method not found" 
+- [ ] `list_tools` - Required for ATXP SDK to discover our tools
+- [ ] `list_resources` - Return available resources (if we have any)
+- [ ] `list_prompts` - Return available prompts (if we have any)
+- [ ] `tools/call` - User confirmed this exists but needs ATXP auth
+- [ ] `read_resource` - Serve resource content (if applicable)
+
+## Server Metadata and Capabilities
+
+**Question 9:** For the `/atxp` endpoint, do we return proper initialization response?
+When `initialize` is called, we should return:
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "name": "moluabi-mcp-server",
+    "version": "1.0.0",
+    "capabilities": {
+      "tools": {
+        "list_tools": true
+      },
+      "resources": {},
+      "prompts": {}
+    }
+  },
+  "id": 0
+}
+```
+
+**Instead we're returning:**
+```json
+{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found: initialize"},"id":0}
+```
+
+## Immediate Testing Requirements
+
+**Question 10:** Can you test these specific curl commands on our server?
+
+**Test 1 - Initialize (Currently Failing):**
+```bash
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'
+```
+**Expected:** Success response with server capabilities  
+**Current:** `{"error":{"code":-32601,"message":"Method not found: initialize"}}`
+
+**Test 2 - List Tools (Unknown Status):**
+```bash
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":2}'
+```
+
+**Test 3 - Tool Call (Partially Working):**
+```bash
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_agents","arguments":{"apiKey":"mab_..."}},"id":3}'
+```
+**Expected:** Tool execution  
+**Current:** "Payment required - ATXP authentication missing" (shows method exists)
+
+## Root Cause Analysis Questions
+
+**Question 11:** Implementation Architecture:
+- Are we using the official MCP SDK for the `/atxp` endpoint?
+- Did we implement `/atxp` as a custom API that only partially follows MCP protocol?
+- **Critical:** Why does `/mcp/call` work but `/atxp` missing `initialize`?
+
+**Question 12:** Integration Pattern:
+- Is `/atxp` supposed to be a full MCP server or just a tool execution endpoint?
+- Should we unify both endpoints to use the same MCP implementation?
+- Can we make `/atxp` inherit all MCP protocol methods from `/mcp/call`?
+
+## Immediate Action Items
+
+**Priority 1 (Blocking ATXP Integration):**
+1. **Fix `/atxp` endpoint** to respond to `initialize` method
+2. **Add `list_tools`** method to `/atxp` endpoint  
+3. **Test with provided curl commands** to verify MCP protocol compliance
+
+**Priority 2 (Validation):**
+4. Run MCP Inspector against `/atxp` endpoint
+5. Verify session management works with ATXP authentication
+6. Document the difference between `/mcp/call` and `/atxp` endpoints
+
+## Testing Validation
+
+After implementing fixes, please test:
+```bash
+# Should work after fix:
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'
+
+# Should return our tools:
+curl -X POST https://moluabi-mcp-server.replit.app/atxp \
+-d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":2}'
+```
+
+**Bottom Line:** The ATXP SDK expects full MCP JSON-RPC protocol compliance on the `/atxp` endpoint, but we're only implementing `tools/call`. We need to add the missing MCP lifecycle methods (`initialize`, `list_tools`, etc.) to make ATXP integration work.
+
+Please let me know your findings for each question, and we can troubleshoot any missing pieces together.
+
+Thanks!
