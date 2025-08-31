@@ -181,7 +181,7 @@ atxpMcpServer.tool(
         };
       }
 
-      const agent = await platformClient.updateAgent(args.apiKey, args.agentId, {
+      const agent = await platformClient.updateAgent(args.apiKey, parseInt(args.agentId), {
         name: args.name,
         description: args.description,
         instructions: args.instructions,
@@ -248,7 +248,7 @@ atxpMcpServer.tool(
         };
       }
 
-      await platformClient.deleteAgent(args.apiKey, args.agentId);
+      await platformClient.deleteAgent(args.apiKey, parseInt(args.agentId));
 
       const result = {
         success: true,
@@ -310,7 +310,7 @@ atxpMcpServer.tool(
         };
       }
 
-      await platformClient.addUserToAgent(args.apiKey, args.agentId, args.userId, args.permission);
+      await platformClient.addUserToAgent(args.apiKey, parseInt(args.agentId), args.userId);
 
       const result = {
         success: true,
@@ -371,7 +371,7 @@ atxpMcpServer.tool(
         };
       }
 
-      await platformClient.removeUserFromAgent(args.apiKey, args.agentId, args.userId);
+      await platformClient.removeUserFromAgent(args.apiKey, parseInt(args.agentId), args.userId);
 
       const result = {
         success: true,
@@ -549,10 +549,11 @@ async function main() {
       }));
       
       // Handle MCP requests through transport (EXACT official pattern)
-      atxpApp.post('/', async (req: Request, res: Response) => {
+      atxpApp.post('/', async (req, res) => {
         console.log('🔥 ATXP MCP request (official pattern):', req.body);
         try {
-          await atxpTransport.handleRequest(req, res, req.body);
+          // Pass the HTTP response object directly to the transport
+          await atxpTransport.handleRequest(req.body, res);
         } catch (error) {
           console.error('❌ ATXP MCP request error:', error);
           if (!res.headersSent) {
@@ -1245,9 +1246,10 @@ async function main() {
               console.log('✅ ATXP payment successful - client wallet charged!');
             } catch (error) {
               console.error('❌ ATXP payment failed in server.ts:', error);
-              console.error('❌ Error name:', error?.name);
-              console.error('❌ Error message:', error?.message);
-              console.error('❌ Error stack:', error?.stack);
+              const err = error as any;
+              console.error('❌ Error name:', err?.name);
+              console.error('❌ Error message:', err?.message);
+              console.error('❌ Error stack:', err?.stack);
               console.error('❌ Full error object:', JSON.stringify(error, null, 2));
               
               return res.status(402).json({
@@ -1289,7 +1291,7 @@ async function main() {
               case "update_agent":
                 // Use inline logic for update_agent
                 try {
-                  const agent = await platformClient.updateAgent(atxpArgs.apiKey, atxpArgs.agentId, {
+                  const agent = await platformClient.updateAgent(atxpArgs.apiKey, parseInt(atxpArgs.agentId), {
                     name: atxpArgs.name,
                     description: atxpArgs.description,
                     instructions: atxpArgs.instructions,
@@ -1310,7 +1312,7 @@ async function main() {
               case "delete_agent":
                 // Use inline logic for delete_agent
                 try {
-                  await platformClient.deleteAgent(atxpArgs.apiKey, atxpArgs.agentId);
+                  await platformClient.deleteAgent(atxpArgs.apiKey, parseInt(atxpArgs.agentId));
                   result = {
                     success: true,
                     message: "Agent deleted successfully",
@@ -1324,7 +1326,7 @@ async function main() {
               case "add_user_to_agent":
                 // Use inline logic for add_user_to_agent
                 try {
-                  await platformClient.addUserToAgent(atxpArgs.apiKey, atxpArgs.agentId, atxpArgs.userEmail);
+                  await platformClient.addUserToAgent(atxpArgs.apiKey, parseInt(atxpArgs.agentId), atxpArgs.userEmail);
                   result = {
                     success: true,
                     message: `Access granted to ${atxpArgs.userEmail}`,
@@ -1338,7 +1340,7 @@ async function main() {
               case "remove_user_from_agent":
                 // Use inline logic for remove_user_from_agent
                 try {
-                  await platformClient.removeUserFromAgent(atxpArgs.apiKey, atxpArgs.agentId, atxpArgs.userEmail);
+                  await platformClient.removeUserFromAgent(atxpArgs.apiKey, parseInt(atxpArgs.agentId), atxpArgs.userEmail);
                   result = {
                     success: true,
                     message: `Access removed for ${atxpArgs.userEmail}`,
@@ -1399,8 +1401,8 @@ async function main() {
             receivedMethod: method,
             methodType: typeof method,
             methodLength: method ? method.length : null,
-            methodCharCodes: method ? Array.from(method).map(char => char.charCodeAt(0)) : null,
-            expectedCharCodes: Array.from("initialize").map(char => char.charCodeAt(0)),
+            methodCharCodes: method ? method.split('').map(char => char.charCodeAt(0)) : null,
+            expectedCharCodes: Array.from("initialize").map((char: string) => char.charCodeAt(0)),
             strictEquals: method === "initialize",
             trimEquals: method ? method.trim() === "initialize" : false,
             lowerEquals: method ? method.toLowerCase() === "initialize" : false

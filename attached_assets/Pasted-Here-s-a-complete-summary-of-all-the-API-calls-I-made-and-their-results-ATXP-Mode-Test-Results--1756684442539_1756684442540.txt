@@ -1,0 +1,38 @@
+Here's a complete summary of all the API calls I made and their results:
+
+ATXP Mode Test Results
+Agent Management Tools - All Failed
+# List agents
+curl -s http://localhost:5000/api/agents
+→ {"error":"MCP error -32602: MCP error -32602: Tool list_agents not found"}
+# View specific agent  
+curl -s http://localhost:5000/api/agents/123
+→ {"error":"MCP error -32602: MCP error -32602: Tool get_agent not found"}
+# Create agent
+curl -s -X POST http://localhost:5000/api/agents -H "Content-Type: application/json" -d '{"name":"TestAgent","description":"Test agent","type":"file-based"}'
+→ {"error":"MCP error -32602: MCP error -32602: Tool create_agent not found"}
+# Update agent
+curl -s -X PUT http://localhost:5000/api/agents/123 -H "Content-Type: application/json" -d '{"name":"UpdatedAgent","description":"Updated"}'
+→ {"error":"MCP error -32602: MCP error -32602: Tool update_agent not found"}
+# Delete agent
+curl -s -X DELETE http://localhost:5000/api/agents/123
+→ {"error":"MCP error -32602: MCP error -32602: Tool delete_agent not found"}
+Other Endpoints - Mixed Results
+# Usage report
+curl -s http://localhost:5000/api/usage/report
+→ Returns HTML (frontend page) instead of JSON
+# Pricing
+curl -s http://localhost:5000/api/pricing  
+→ {"error":"Failed to get pricing: 406"}
+# Assign user to agent
+curl -s -X POST http://localhost:5000/api/agents/123/users -H "Content-Type: application/json" -d '{"userId":"user123"}'
+→ Returns HTML (frontend page) instead of JSON
+# Unassign user from agent
+curl -s -X DELETE http://localhost:5000/api/agents/123/users/user123
+→ Returns HTML (frontend page) instead of JSON
+Key Error Patterns:
+MCP Tool Missing: MCP error -32602: Tool [tool_name] not found
+HTTP 406: Failed to get pricing: 406
+Routing Issues: Several endpoints return HTML frontend instead of JSON API responses
+OAuth Working: Despite errors, authentication and payment validation are working perfectly
+The logs show ATXP OAuth is functioning correctly with successful token exchanges, but the MCP server's ATXP endpoint is missing all the expected tools.
