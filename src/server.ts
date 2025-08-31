@@ -708,15 +708,26 @@ async function main() {
           // Require ATXP payment before tool execution (now with proper middleware context)
           if (toolPricing[toolName]) {
             try {
+              console.log(`🔍 SERVER.TS: About to call requirePayment for tool: ${toolName}`);
+              console.log(`🔍 SERVER.TS: Payment amount: $${toolPricing[toolName]}`);
+              
               const { requirePayment } = await import('@atxp/server');
               const BigNumber = (await import('bignumber.js')).default;
               const paymentAmount = new BigNumber(toolPricing[toolName]);
               
               console.log(`💰 Requiring ATXP payment: $${paymentAmount.toString()} for ${toolName}`);
+              console.log(`🔍 SERVER.TS: Calling requirePayment with price: ${paymentAmount}`);
+              
               await requirePayment({ price: paymentAmount });
+              
               console.log('✅ ATXP payment successful - client wallet charged!');
             } catch (error) {
-              console.error('❌ ATXP payment failed:', error);
+              console.error('❌ ATXP payment failed in server.ts:', error);
+              console.error('❌ Error name:', error?.name);
+              console.error('❌ Error message:', error?.message);
+              console.error('❌ Error stack:', error?.stack);
+              console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+              
               return res.status(402).json({
                 jsonrpc: "2.0",
                 error: {
