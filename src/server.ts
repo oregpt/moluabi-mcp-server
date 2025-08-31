@@ -287,9 +287,29 @@ async function main() {
       }
     });
 
-    // OAuth Resource Server Metadata Endpoint for ATXP
+    // Standard OAuth Resource Server Metadata Endpoint (ATXP SDK expects this path)
+    app.get('/.well-known/oauth-protected-resource', (req, res) => {
+      console.log('🔐 OAuth resource metadata requested (standard path)');
+      res.json({
+        resource: "https://moluabi-mcp-server.replit.app/atxp",
+        authorization_servers: ["https://auth.atxp.ai"],
+        authorization_server: "https://auth.atxp.ai",
+        issuer: "https://auth.atxp.ai",
+        authorization_endpoint: "https://auth.atxp.ai/oauth/authorize",
+        token_endpoint: "https://auth.atxp.ai/oauth/token",
+        scopes_supported: ["mcp:tools", "mcp:read", "mcp:write"],
+        token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
+        resource_server_metadata: {
+          name: "MoluAbi ATXP MCP Server",
+          version: "2.0.0",
+          supported_operations: ["agent_management", "tool_execution"]
+        }
+      });
+    });
+
+    // Alternative OAuth Resource Server Metadata Endpoint for ATXP (backward compatibility)
     app.get('/.well-known/oauth-protected-resource/atxp', (req, res) => {
-      console.log('🔐 OAuth resource metadata requested for ATXP');
+      console.log('🔐 OAuth resource metadata requested for ATXP (legacy path)');
       res.json({
         resource: "https://moluabi-mcp-server.replit.app/atxp",
         authorization_servers: ["https://auth.atxp.ai"],
