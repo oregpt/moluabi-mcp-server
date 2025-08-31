@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@atxp/server": "^0.2.14",
+    "@atxp/server": "^0.2.19",
     "@modelcontextprotocol/sdk": "^1.17.4",
     "@neondatabase/serverless": "^1.0.1",
     "@types/memoizee": "^0.4.12",
