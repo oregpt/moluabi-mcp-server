@@ -526,7 +526,23 @@ async function main() {
         console.log('🔥   - Method.trim() === "initialize":', method ? method.trim() === "initialize" : 'N/A');
         
         console.log('🔥 Step 6: Starting method comparisons...');
-        if (method === "initialize") {
+        if (method === "tools/list") {
+          console.log('🔥 Step 6: TOOLS/LIST METHOD MATCHED!!! ENTERING HANDLER...');
+          // Return ATXP-compatible tools list
+          const tools = createAgentTools();
+          return res.json({
+            jsonrpc: "2.0",
+            result: {
+              tools: tools.map(tool => ({
+                name: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema
+              })),
+              debug: "TOOLS_LIST_HANDLER_REACHED_SUCCESSFULLY"
+            },
+            id
+          });
+        } else if (method === "initialize") {
           console.log('🔥 Step 6: INITIALIZE METHOD MATCHED!!! ENTERING HANDLER...');
           console.log('🛠️ MCP initialize called on /atxp');
           return res.json({
@@ -542,22 +558,6 @@ async function main() {
                 version: "2.0.0",
                 debug: "INITIALIZE_METHOD_REACHED_SUCCESSFULLY"
               }
-            },
-            id
-          });
-        } else if (method === "tools/list") {
-          console.log('🔥 Step 6: TOOLS/LIST METHOD MATCHED!!! ENTERING HANDLER...');
-          // Return ATXP-compatible tools list
-          const tools = createAgentTools();
-          return res.json({
-            jsonrpc: "2.0",
-            result: {
-              tools: tools.map(tool => ({
-                name: tool.name,
-                description: tool.description,
-                inputSchema: tool.inputSchema
-              })),
-              debug: "TOOLS_LIST_HANDLER_REACHED_SUCCESSFULLY"
             },
             id
           });
