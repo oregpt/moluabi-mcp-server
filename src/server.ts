@@ -47,7 +47,8 @@ async function main() {
         service: 'MoluAbi MCP Server',
         version: '2.0.0',
         authentication: 'API Key (mab_...)',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        debug: 'CODE_IS_ACTUALLY_RUNNING_NOW'
       });
     });
 
@@ -555,7 +556,8 @@ async function main() {
                 name: tool.name,
                 description: tool.description,
                 inputSchema: tool.inputSchema
-              }))
+              })),
+              debug: "TOOLS_LIST_HANDLER_REACHED_SUCCESSFULLY"
             },
             id
           });
@@ -584,27 +586,24 @@ async function main() {
             id
           });
         } else {
-          console.log('🔥 Step 6: NO METHOD MATCHED!!! FALLING TO DEFAULT CASE...');
-          console.log('🔥 METHOD NOT FOUND ERROR - About to return error...');
-          console.log('🔥 Method comparison results:');
-          console.log('🔥   - method === "initialize":', method === "initialize");
-          console.log('🔥   - method === "tools/list":', method === "tools/list");
-          console.log('🔥   - method === "tools/call":', method === "tools/call");
-          console.log('🔥 Detailed method analysis:');
-          for (let i = 0; i < method.length; i++) {
-            console.log(`🔥   - Char ${i}: "${method[i]}" (code: ${method.charCodeAt(i)})`);
-          }
-          console.log('🔥 Expected initialize string analysis:');
-          const expectedInit = "initialize";
-          for (let i = 0; i < expectedInit.length; i++) {
-            console.log(`🔥   - Expected char ${i}: "${expectedInit[i]}" (code: ${expectedInit.charCodeAt(i)})`);
-          }
+          // Debug information in the response itself since console logs aren't visible
+          const debugInfo = {
+            receivedMethod: method,
+            methodType: typeof method,
+            methodLength: method ? method.length : null,
+            methodCharCodes: method ? Array.from(method).map(char => char.charCodeAt(0)) : null,
+            expectedCharCodes: Array.from("initialize").map(char => char.charCodeAt(0)),
+            strictEquals: method === "initialize",
+            trimEquals: method ? method.trim() === "initialize" : false,
+            lowerEquals: method ? method.toLowerCase() === "initialize" : false
+          };
           
           return res.status(400).json({
             jsonrpc: "2.0",
             error: {
               code: -32601,
-              message: `Method not found: ${method}`
+              message: `Method not found: ${method}`,
+              debug: debugInfo
             },
             id
           });
