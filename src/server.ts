@@ -154,28 +154,29 @@ async function main() {
       console.log('🔧 Setting up ATXP middleware for payment context...');
       console.log(`💰 Wallet destination: ${PAYMENT_DESTINATION}`);
       
-      // PROPER ATXP INTEGRATION: Following documentation pattern
-      console.log('🔧 Setting up ATXP with connected MCP server...');
+      // OFFICIAL ATXP PATTERN: Apply middleware to entire app section
+      console.log('🔧 Creating dedicated ATXP-enabled Express app...');
       
-      // Setup ATXP server with transport connection
+      // Setup ATXP server with transport connection first
       await setupAtxpServer();
       
+      // Create separate Express app for ATXP following EXACT official pattern
       const atxpApp = express();
       atxpApp.use(express.json());
       
-      // Apply ATXP middleware to dedicated app (follows docs pattern)
+      // Apply ATXP middleware to ENTIRE app (official pattern)
       atxpApp.use(atxpServer({
         destination: PAYMENT_DESTINATION,
         payeeName: 'MoluAbi MCP Server'
       }));
       
-      // Handle MCP requests through the transport
-      atxpApp.post('/', async (req, res) => {
-        console.log('🔥 ATXP MCP request received via transport:', req.body);
+      // Handle MCP requests through transport (EXACT official pattern)
+      atxpApp.post('/', async (req: Request, res: Response) => {
+        console.log('🔥 ATXP MCP request (official pattern):', req.body);
         try {
           await atxpTransport.handleRequest(req, res, req.body);
         } catch (error) {
-          console.error('❌ ATXP transport error:', error);
+          console.error('❌ ATXP MCP request error:', error);
           if (!res.headersSent) {
             res.status(500).json({
               jsonrpc: '2.0',
@@ -189,10 +190,22 @@ async function main() {
         }
       });
       
-      // Mount the ATXP app as a subapplication
+      // Health check for ATXP app
+      atxpApp.get('/health', (req, res) => {
+        res.json({
+          status: 'healthy',
+          service: 'MoluAbi ATXP MCP Server',
+          version: '2.0.0',
+          pattern: 'Official ATXP Tutorial Pattern',
+          authentication: 'ATXP OAuth2',
+          payment: 'Crypto per-transaction'
+        });
+      });
+      
+      // Mount the ATXP app at /atxp
       app.use('/atxp', atxpApp);
       
-      console.log('🔧 ATXP application with transport handling created');
+      console.log('✅ ATXP app created following EXACT official tutorial pattern');
       
       console.log('✅ ATXP middleware configured for /atxp endpoint with payment-enabled tools');
     }
