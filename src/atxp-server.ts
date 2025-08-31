@@ -474,15 +474,17 @@ app.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Start the server
-const PORT = process.env.PORT || 5001;
+// Use port 8080 which is explicitly allowed by Replit
+const PORT = process.env.ATXP_PORT || 8080;
 setupServer().then(() => {
-  app.listen(PORT, () => {
-    console.log('🌐 MoluAbi ATXP Server listening on port', PORT);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log('🌐 MoluAbi ATXP Server listening on 0.0.0.0:' + PORT);
     console.log('🔑 Authentication: ATXP OAuth2 + Payment validation');
     console.log('💰 Payment processing: Enabled');
     console.log('🛠️ Available tools: 10 MCP tools with payment requirements');
     console.log('✅ Ready for ATXP SDK integration');
+    console.log('🌍 External access: Available on all interfaces');
+    console.log(`🌍 External URL: https://moluabi-mcp-server.replit.app:${PORT}`);
   });
 }).catch(error => {
   console.error('💥 Failed to setup ATXP server:', error);
