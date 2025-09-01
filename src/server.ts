@@ -548,14 +548,57 @@ async function main() {
         payeeName: 'MoluAbi MCP Server'
       }));
       
-      // Handle MCP requests through transport (EXACT official pattern)
+      // Handle MCP requests - bypass transport and handle directly
       atxpApp.post('/', async (req, res) => {
-        console.log('🔥 ATXP MCP request (official pattern):', req.body);
+        console.log('🔥 ATXP MCP request received:', req.body);
+        
         try {
-          // Pass the HTTP response object directly to the transport
-          await atxpTransport.handleRequest(req.body, res);
+          const { method, params, id } = req.body;
+          
+          if (method === 'tools/list') {
+            console.log('📋 ATXP tools/list requested');
+            
+            const tools = [
+              { name: "atxp_create_agent", description: "Create a new AI agent with crypto payment" },
+              { name: "atxp_list_agents", description: "List all agents with crypto payment" },
+              { name: "atxp_get_agent", description: "Get details of a specific agent with crypto payment" },
+              { name: "atxp_update_agent", description: "Update an existing agent with crypto payment" },
+              { name: "atxp_delete_agent", description: "Delete an agent with crypto payment" },
+              { name: "atxp_prompt_agent", description: "Send a prompt to an agent with crypto payment" },
+              { name: "atxp_add_user_to_agent", description: "Add user access to an agent with crypto payment" },
+              { name: "atxp_remove_user_from_agent", description: "Remove user access from an agent with crypto payment" },
+              { name: "atxp_get_usage_report", description: "Get usage report with crypto payment" },
+              { name: "atxp_get_pricing", description: "Get current pricing information with crypto payment" }
+            ];
+            
+            return res.json({
+              jsonrpc: "2.0",
+              result: { tools },
+              id
+            });
+          }
+          
+          if (method === 'tools/call') {
+            const toolName = params?.name;
+            console.log(`🔧 ATXP tool call: ${toolName}`);
+            
+            // Call the ATXP MCP server directly
+            const result = await atxpMcpServer.handleRequest({
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params,
+              id
+            });
+            
+            return res.json(result);
+          }
+          
+          // Handle other MCP methods
+          const result = await atxpMcpServer.handleRequest(req.body);
+          return res.json(result);
+          
         } catch (error) {
-          console.error('❌ ATXP MCP request error:', error);
+          console.error('❌ ATXP request error:', error);
           if (!res.headersSent) {
             res.status(500).json({
               jsonrpc: '2.0',
@@ -563,7 +606,7 @@ async function main() {
                 code: -32603,
                 message: 'Internal server error',
               },
-              id: null,
+              id: req.body?.id || null,
             });
           }
         }
