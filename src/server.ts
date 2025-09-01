@@ -554,6 +554,7 @@ const setupServer = async () => {
 // Setup the URL endpoint that will handle MCP requests - EXACT official pattern
 app.post('/', async (req: Request, res: Response) => {
   console.log('🔥 ATXP MCP request received:', req.body);
+  console.log('🔐 Authorization header:', req.headers.authorization ? 'BEARER_TOKEN_PRESENT' : 'NO_AUTH_HEADER');
   try {
       await transport.handleRequest(req, res, req.body);
   } catch (error) {
