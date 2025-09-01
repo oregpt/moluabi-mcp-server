@@ -5,6 +5,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { atxpServer, requirePayment, atxpAccountId, getATXPConfig } from '@atxp/server';
+import { ConsoleLogger, LogLevel, UrlString } from '@atxp/common';
 import BigNumber from "bignumber.js";
 import dotenv from 'dotenv';
 
@@ -53,10 +54,6 @@ if (!PAYMENT_DESTINATION) {
   process.exit(1);
 }
 
-if (!ATXP_AUTH_CLIENT_TOKEN) {
-  console.error('❌ ATXP_AUTH_CLIENT_TOKEN environment variable is required');
-  process.exit(1);
-}
 
 console.log('💰 Payment destination configured:', PAYMENT_DESTINATION.substring(0, 10) + '...');
 
@@ -87,12 +84,15 @@ memoryOAuthDb.getAccessToken = async (userId, url) => {
   return result;
 };
 
-// Configure ATXP server with memory OAuth database
-app.use(atxpServer({ 
-  destination: PAYMENT_DESTINATION, 
+// Configure ATXP server with proper OAuth configuration
+app.use(atxpServer({
+  destination: PAYMENT_DESTINATION,
+  resource: `https://moluabi-mcp-server.replit.app/` as UrlString,
+  server: 'https://auth.atxp.ai' as UrlString,
+  mountPath: '/',
   payeeName: 'MoluAbi MCP Server',
-  oAuthDb: memoryOAuthDb,  // Use official MemoryOAuthDb 
-  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN, // Need this for payment validation
+  oAuthDb: memoryOAuthDb,
+  logger: new ConsoleLogger({ level: LogLevel.INFO }),
 }));
 
 
