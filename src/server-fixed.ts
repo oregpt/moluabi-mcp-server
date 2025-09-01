@@ -1,36 +1,15 @@
 #!/usr/bin/env node
 
-// Add comprehensive error handling to prevent crash loops
-process.on('uncaughtException', (error) => {
-  console.error('❌ UNCAUGHT EXCEPTION:', error);
-  console.error('❌ Stack:', error.stack);
-  console.error('🔄 Attempting graceful shutdown...');
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ UNHANDLED REJECTION at:', promise, 'reason:', reason);
-  console.error('🔄 Attempting graceful shutdown...');
-  process.exit(1);
-});
-
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-// Temporarily disable all ATXP imports due to path-to-regexp compatibility issues
-// import { atxpServer } from '@atxp/server';
+import { atxpServer, requirePayment } from '@atxp/server';
 import BigNumber from "bignumber.js";
 import dotenv from 'dotenv';
 
 // Import our platform client
 import { PlatformAPIClient } from "./platform/api-client.js";
-
-// Create a mock requirePayment function to avoid ATXP route issues
-const mockRequirePayment = async (options: any) => {
-  console.log(`⚠️ Mock payment validation: $${options.price} USDC (ATXP middleware disabled)`);
-  return Promise.resolve();
-};
 
 // Load environment variables
 dotenv.config();
@@ -60,20 +39,11 @@ if (!PAYMENT_DESTINATION) {
 
 console.log('💰 Payment destination configured:', PAYMENT_DESTINATION.substring(0, 10) + '...');
 
-// Temporarily disable ATXP middleware to avoid path-to-regexp compatibility issues
-console.log('⚠️ Temporarily disabling ATXP middleware due to path-to-regexp compatibility issue');
-console.log('⚠️ This is a known issue with @atxp/server v0.2.19 and newer Express/path-to-regexp versions');
-
-// Add basic ATXP-compatible headers without the problematic middleware
-app.use((req, res, next) => {
-  // Add ATXP compatibility headers
-  res.header('X-ATXP-Version', '0.2.19');
-  res.header('X-Payment-Method', 'ATXP-Crypto');
-  res.header('X-Server-Status', 'compatible');
-  next();
-});
-
-console.log('✅ Basic ATXP compatibility middleware added');
+// Configure our Express application to use the ATXP middleware - EXACT official pattern
+app.use(atxpServer({ 
+  destination: PAYMENT_DESTINATION, 
+  payeeName: 'MoluAbi MCP Server', 
+}));
 
 // Create our transport instance
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -92,7 +62,7 @@ server.tool(
   },
   async (args) => {
     console.log('🛠️ list_agents tool called');
-    await mockRequirePayment({price: BigNumber(0.001)});
+    await requirePayment({price: BigNumber(0.001)});
     console.log('💰 Payment validated for list_agents');
     
     try {
@@ -123,7 +93,7 @@ server.tool(
   },
   async (args) => {
     console.log('🛠️ get_pricing tool called');
-    await mockRequirePayment({price: BigNumber(0.001)});
+    await requirePayment({price: BigNumber(0.001)});
     console.log('💰 Payment validated for get_pricing');
     
     const pricing = {
@@ -146,110 +116,29 @@ server.tool(
 
 console.log('✅ Essential tools registered');
 
-// Add route validation to prevent path-to-regexp errors
-const validateRoutes = () => {
-  console.log('🔍 Validating route patterns...');
-  
-  // Check for common malformed patterns that cause path-to-regexp errors
-  const testRoutes = [
-    { pattern: '/', valid: true },
-    { pattern: '/health', valid: true },
-    { pattern: '*', valid: true } // catch-all
-  ];
-  
-  testRoutes.forEach(route => {
-    try {
-      // Test route pattern parsing
-      if (route.pattern.includes(':') && !route.pattern.match(/:([a-zA-Z_$][a-zA-Z0-9_$]*)/)) {
-        throw new Error(`Invalid parameter syntax in route: ${route.pattern}`);
-      }
-      console.log(`✅ Route pattern validated: ${route.pattern}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Invalid route pattern: ${route.pattern} - ${errorMessage}`);
-      throw error;
-    }
-  });
-  
-  console.log('✅ All route patterns validated successfully');
-};
-
-// Setup routes for the server with validation
+// Setup routes for the server
 const setupServer = async () => {
-  try {
-    // Validate routes before connecting
-    validateRoutes();
-    
-    await server.connect(transport);
-    console.log('✅ MCP server connected to transport');
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('❌ Failed to setup server:', errorMessage);
-    if (error instanceof Error && error.stack) {
-      console.error('❌ Error stack:', error.stack);
-    }
-    throw error;
-  }
+  await server.connect(transport);
+  console.log('✅ MCP server connected to transport');
 };
-
-// Add health check endpoint for deployment readiness
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    service: 'MoluAbi MCP Server',
-    version: '2.0.0',
-    timestamp: new Date().toISOString(),
-    port: PORT,
-    tools: ['list_agents', 'get_pricing']
-  });
-});
 
 // Setup the URL endpoint that will handle MCP requests - EXACT official pattern
 app.post('/', async (req: Request, res: Response) => {
   console.log('🔥 MCP request received:', req.body);
   try {
-    // Add request validation
-    if (!req.body) {
-      throw new Error('Request body is required');
-    }
-    
-    await transport.handleRequest(req, res, req.body);
-  } catch (error: unknown) {
+      await transport.handleRequest(req, res, req.body);
+  } catch (error) {
     console.error('❌ Error handling MCP request:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    
-    if (errorStack) {
-      console.error('❌ Error stack:', errorStack);
-    }
-    
     if (!res.headersSent) {
       res.status(500).json({
         jsonrpc: '2.0',
         error: {
           code: -32603,
           message: 'Internal server error',
-          details: errorMessage
         },
-        id: req.body?.id || null,
+        id: null,
       });
     }
-  }
-});
-
-// Add catch-all handler for unmatched routes with proper pattern syntax
-app.use((req, res, next) => {
-  // Only handle unmatched routes
-  if (req.path !== '/' && req.path !== '/health') {
-    console.log(`🚨 UNHANDLED REQUEST: ${req.method} ${req.path}`);
-    res.status(404).json({ 
-      error: 'Route not found', 
-      method: req.method, 
-      path: req.path,
-      available_endpoints: ['POST /', 'GET /health']
-    });
-  } else {
-    next();
   }
 });
 

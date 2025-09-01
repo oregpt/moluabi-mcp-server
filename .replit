@@ -23,11 +23,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx src/server-final.ts"
+args = "npx tsx src/server-fixed.ts"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [deployment]
 deploymentTarget = "cloudrun"
