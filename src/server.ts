@@ -31,18 +31,29 @@ app.use(express.json());
 
 // Read your wallet address from the environment variable
 const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
+const ATXP_AUTH_CLIENT_TOKEN = process.env.ATXP_AUTH_CLIENT_TOKEN;
 
 if (!PAYMENT_DESTINATION) {
   console.error('❌ PAYMENT_DESTINATION environment variable is required');
   process.exit(1);
 }
 
+if (!ATXP_AUTH_CLIENT_TOKEN) {
+  console.error('❌ ATXP_AUTH_CLIENT_TOKEN environment variable is required');
+  process.exit(1);
+}
+
 console.log('💰 Payment destination configured:', PAYMENT_DESTINATION.substring(0, 10) + '...');
 
 // Configure our Express application to use the ATXP middleware - EXACT official pattern
+console.log('🔧 Configuring ATXP server with:');
+console.log('  - destination:', PAYMENT_DESTINATION);
+console.log('  - payeeName: MoluAbi MCP Server');
+
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
-  payeeName: 'MoluAbi MCP Server', 
+  payeeName: 'MoluAbi MCP Server',
+  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN,
 }));
 
 // Create our transport instance
@@ -113,6 +124,8 @@ server.tool(
     
     // Require payment before execution
     try {
+      console.log('💳 Attempting payment charge: $0.001 USDC');
+      console.log('💳 Payment destination:', PAYMENT_DESTINATION);
       await requirePayment({price: BigNumber(0.001)});
       console.log('💰 Payment validated for list_agents');
     } catch (paymentError) {
