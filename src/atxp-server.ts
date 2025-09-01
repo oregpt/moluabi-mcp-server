@@ -141,6 +141,13 @@ server.tool(
 // Create our Express application - EXACT official pattern
 const app = express();
 
+// Add logging for all requests to ATXP app
+app.use((req, res, next) => {
+  console.log(`🚀🚀🚀 ATXP APP REQUEST: ${req.method} ${req.url} at ${new Date().toISOString()}`);
+  console.log(`🚀🚀🚀 ATXP AUTH:`, req.headers.authorization ? 'Present' : 'Missing');
+  next();
+});
+
 // Configure our Express application to parse JSON bodies
 app.use(express.json());
 

@@ -524,15 +524,14 @@ async function main() {
 
     // Create HTTP server
     const app = express();
+    const PORT = parseInt(process.env.PORT || '5000', 10);
     
-    // Add global request logging FIRST - before any middleware
+    // Add global request logging FIRST - before any other middleware
     app.use((req, res, next) => {
       console.log(`🌐🌐🌐 GLOBAL REQUEST: ${req.method} ${req.url} at ${new Date().toISOString()}`);
       console.log(`🌐🌐🌐 AUTH HEADER:`, req.headers.authorization ? 'Present' : 'Missing');
       next();
     });
-    
-    const PORT = parseInt(process.env.PORT || '5000', 10);
 
     // Configure ATXP middleware according to official documentation
     const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
