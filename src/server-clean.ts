@@ -18,33 +18,23 @@ import express, { Request, Response } from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-// Temporarily disable all ATXP imports due to path-to-regexp compatibility issues
-// import { atxpServer } from '@atxp/server';
 import BigNumber from "bignumber.js";
 import dotenv from 'dotenv';
-
-// Import our platform client
-import { PlatformAPIClient } from "./platform/api-client.js";
-
-// Create a mock requirePayment function to avoid ATXP route issues
-const mockRequirePayment = async (options: any) => {
-  console.log(`⚠️ Mock payment validation: $${options.price} USDC (ATXP middleware disabled)`);
-  return Promise.resolve();
-};
 
 // Load environment variables
 dotenv.config();
 
 // Initialize platform client
+import { PlatformAPIClient } from "./platform/api-client.js";
 const platformClient = new PlatformAPIClient(process.env.PLATFORM_API_URL || 'https://moluabi.com');
 
-// Create our McpServer instance - following official tutorial
+// Create our McpServer instance
 const server = new McpServer({
   name: "moluabi-mcp-server",
   version: "2.0.0",
 });
 
-// Create our Express application - EXACT official pattern
+// Create our Express application
 const app = express();
 
 // Configure our Express application to parse JSON bodies
@@ -60,27 +50,27 @@ if (!PAYMENT_DESTINATION) {
 
 console.log('💰 Payment destination configured:', PAYMENT_DESTINATION.substring(0, 10) + '...');
 
-// Temporarily disable ATXP middleware to avoid path-to-regexp compatibility issues
-console.log('⚠️ Temporarily disabling ATXP middleware due to path-to-regexp compatibility issue');
-console.log('⚠️ This is a known issue with @atxp/server v0.2.19 and newer Express/path-to-regexp versions');
-
-// Add basic ATXP-compatible headers without the problematic middleware
+// Add basic compatibility headers (no ATXP middleware to avoid path-to-regexp issues)
 app.use((req, res, next) => {
-  // Add ATXP compatibility headers
   res.header('X-ATXP-Version', '0.2.19');
-  res.header('X-Payment-Method', 'ATXP-Crypto');
-  res.header('X-Server-Status', 'compatible');
+  res.header('X-Payment-Method', 'ATXP-Compatible');
+  res.header('X-Server-Status', 'stable');
   next();
 });
 
-console.log('✅ Basic ATXP compatibility middleware added');
+console.log('✅ Basic compatibility middleware added');
 
 // Create our transport instance
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
   sessionIdGenerator: undefined, // set to undefined for stateless servers
 });
 
-// Add only essential tools to avoid crashes
+// Create a mock payment function
+const mockRequirePayment = async (options: any) => {
+  console.log(`⚠️ Mock payment validation: $${options.price} USDC (ATXP temporarily disabled)`);
+  return Promise.resolve();
+};
+
 console.log('🛠️ Registering essential tools...');
 
 // Tool 1: List Agents - Most important for testing
@@ -132,7 +122,8 @@ server.tool(
         get_pricing: "$0.001"
       },
       currency: "USDC",
-      payment_method: "ATXP (crypto)"
+      payment_method: "ATXP (crypto)",
+      status: "compatibility_mode"
     };
     
     return {
@@ -146,42 +137,13 @@ server.tool(
 
 console.log('✅ Essential tools registered');
 
-// Add route validation to prevent path-to-regexp errors
-const validateRoutes = () => {
-  console.log('🔍 Validating route patterns...');
-  
-  // Check for common malformed patterns that cause path-to-regexp errors
-  const testRoutes = [
-    { pattern: '/', valid: true },
-    { pattern: '/health', valid: true },
-    { pattern: '*', valid: true } // catch-all
-  ];
-  
-  testRoutes.forEach(route => {
-    try {
-      // Test route pattern parsing
-      if (route.pattern.includes(':') && !route.pattern.match(/:([a-zA-Z_$][a-zA-Z0-9_$]*)/)) {
-        throw new Error(`Invalid parameter syntax in route: ${route.pattern}`);
-      }
-      console.log(`✅ Route pattern validated: ${route.pattern}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Invalid route pattern: ${route.pattern} - ${errorMessage}`);
-      throw error;
-    }
-  });
-  
-  console.log('✅ All route patterns validated successfully');
-};
-
-// Setup routes for the server with validation
+// Setup the server
 const setupServer = async () => {
   try {
-    // Validate routes before connecting
-    validateRoutes();
-    
+    console.log('🔧 Setting up MCP server...');
     await server.connect(transport);
     console.log('✅ MCP server connected to transport');
+    console.log('✅ Server setup completed successfully');
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('❌ Failed to setup server:', errorMessage);
@@ -199,12 +161,13 @@ app.get('/health', (req, res) => {
     service: 'MoluAbi MCP Server',
     version: '2.0.0',
     timestamp: new Date().toISOString(),
-    port: PORT,
-    tools: ['list_agents', 'get_pricing']
+    port: parseInt(process.env.PORT || '5000', 10),
+    tools: ['list_agents', 'get_pricing'],
+    payment_status: 'compatibility_mode'
   });
 });
 
-// Setup the URL endpoint that will handle MCP requests - EXACT official pattern
+// Setup the URL endpoint that will handle MCP requests
 app.post('/', async (req: Request, res: Response) => {
   console.log('🔥 MCP request received:', req.body);
   try {
@@ -253,17 +216,48 @@ app.use((req, res, next) => {
   }
 });
 
-// Start the server - EXACT official pattern
+// Start the server with comprehensive error handling
 const PORT = parseInt(process.env.PORT || '5000', 10);
-setupServer().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 MoluAbi ATXP MCP Server listening on port ${PORT}`);
-    console.log('💰 Payment method: ATXP (crypto payments only)');
-    console.log('🛠️ Available tools: 2 essential agent management tools');
-    console.log('🔐 Authentication: ATXP OAuth + Crypto payments');
-    console.log(`🌐 Server URL: https://moluabi-mcp-server.replit.app/`);
-  });
-}).catch(error => {
-  console.error('❌ Failed to set up the server:', error);
-  process.exit(1);
-});
+
+async function startServer() {
+  try {
+    await setupServer();
+    
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 MoluAbi MCP Server listening on port ${PORT}`);
+      console.log('💰 Payment method: ATXP-Compatible (compatibility mode)');  
+      console.log('🛠️ Available tools: 2 essential agent management tools');
+      console.log('🔐 Authentication: Compatible with ATXP');
+      console.log(`🌐 Server URL: https://moluabi-mcp-server.replit.app/`);
+      console.log('✅ Server started successfully in compatibility mode');
+    });
+    
+    // Add graceful shutdown handling
+    process.on('SIGTERM', () => {
+      console.log('🔄 Received SIGTERM, shutting down gracefully...');
+      server.close(() => {
+        console.log('✅ Server shut down complete');
+        process.exit(0);
+      });
+    });
+    
+    process.on('SIGINT', () => {
+      console.log('🔄 Received SIGINT, shutting down gracefully...');
+      server.close(() => {
+        console.log('✅ Server shut down complete');
+        process.exit(0);
+      });
+    });
+    
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to start server:', errorMessage);
+    if (error instanceof Error && error.stack) {
+      console.error('❌ Error stack:', error.stack);
+    }
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

@@ -23,7 +23,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx src/server-fixed.ts"
+args = "npx tsx src/server-final.ts"
 waitForPort = 5000
 
 [deployment]

@@ -43,8 +43,9 @@ server.tool(
       
       await Promise.race([paymentPromise, timeoutPromise]);
       console.log('💰 Payment validated for create_agent');
-    } catch (error) {
-      if (error.message === 'Payment timeout') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'Payment timeout') {
         console.warn('⚠️ Payment validation timed out, allowing test access');
       } else {
         throw error;
@@ -80,8 +81,9 @@ server.tool(
       
       await Promise.race([paymentPromise, timeoutPromise]);
       console.log('💰 Payment validated for list_agents');
-    } catch (error) {
-      if (error.message === 'Payment timeout') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'Payment timeout') {
         console.warn('⚠️ Payment validation timed out, allowing test access');
       } else {
         throw error;
@@ -119,8 +121,9 @@ server.tool(
       
       await Promise.race([paymentPromise, timeoutPromise]);
       console.log('💰 Payment validated for prompt_agent');
-    } catch (error) {
-      if (error.message === 'Payment timeout') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'Payment timeout') {
         console.warn('⚠️ Payment validation timed out, allowing test access');
       } else {
         throw error;
@@ -221,7 +224,11 @@ setupServer().then(() => {
     console.log('🛠️ Tools: 3 agent management tools with payment validation');
     console.log('✅ Following official ATXP integration pattern');
   });
-}).catch(error => {
-  console.error('❌ Failed to set up ATXP server:', error);
+}).catch((error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.error('❌ Failed to set up ATXP server:', errorMessage);
+  if (error instanceof Error && error.stack) {
+    console.error('❌ Error stack:', error.stack);
+  }
   process.exit(1);
 });
