@@ -96,8 +96,8 @@ export class SQLiteOAuthDb implements OAuthDb {
       return {
         codeVerifier: result.code_verifier,
         codeChallenge: result.code_challenge,
-        resourceUrl: serverUrl,
-        url: serverUrl
+        resourceUrl: '',
+        url: ''
       };
     }
     
