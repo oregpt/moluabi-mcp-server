@@ -50,11 +50,18 @@ console.log('🔧 Configuring ATXP server with:');
 console.log('  - destination:', PAYMENT_DESTINATION);
 console.log('  - payeeName: MoluAbi MCP Server');
 
-// For now, let's add the static token back with detailed logging to see what's happening
+// Import our SQLite OAuth database
+import { SQLiteOAuthDb } from './sqlite-oauth-db.js';
+
+// Create SQLite OAuth database for persistent token storage
+const sqliteOAuthDb = new SQLiteOAuthDb('./oauth-tokens.db', console);
+
+// Configure ATXP server with SQLite OAuth database (no static token needed)
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server',
-  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN,
+  oAuthDb: sqliteOAuthDb,  // Use SQLite for persistent OAuth tokens
+  // No atxpAuthClientToken - let it use OAuth tokens from database
 }));
 
 // Add logging to track requirePayment calls
