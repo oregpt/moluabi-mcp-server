@@ -64,22 +64,6 @@ app.use(atxpServer({
   // No atxpAuthClientToken - let it use OAuth tokens from database
 }));
 
-// Add logging to track requirePayment calls
-const originalRequirePayment = requirePayment;
-const loggedRequirePayment = async (config: any) => {
-  console.log('🔍 DEBUG: requirePayment called with price:', config.price.toString());
-  console.log('🔍 DEBUG: Current user from atxpAccountId():', atxpAccountId());
-  console.log('🔍 DEBUG: ATXP config exists:', !!getATXPConfig());
-  
-  try {
-    const result = await originalRequirePayment(config);
-    console.log('🔍 DEBUG: requirePayment succeeded');
-    return result;
-  } catch (error) {
-    console.log('🔍 DEBUG: requirePayment failed with error:', error instanceof Error ? error.message : String(error));
-    throw error;
-  }
-};
 
 // Create our transport instance
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -106,7 +90,7 @@ server.tool(
     
     try {
       // Require payment before execution (0.05 USDC for agent creation)
-      await loggedRequirePayment({price: BigNumber(0.05)});
+      await requirePayment({price: BigNumber(0.05)});
       console.log('💰 Payment validated for create_agent');
     } catch (error) {
       console.log('❌ PAYMENT ERROR in create_agent:', error instanceof Error ? error.message : String(error));
@@ -162,7 +146,7 @@ server.tool(
       console.log('💳 Attempting payment charge: $0.001 USDC');
       console.log('💳 Payment destination:', PAYMENT_DESTINATION);
       console.log('🔍 DEBUG: About to call requirePayment - checking what token will be used');
-      await loggedRequirePayment({price: BigNumber(0.001)});
+      await requirePayment({price: BigNumber(0.001)});
       console.log('💰 Payment validated for list_agents');
     } catch (paymentError) {
       console.error('❌ Payment failed for list_agents:', paymentError);
