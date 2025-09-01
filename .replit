@@ -15,15 +15,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Test Server"
+args = "MCP Server"
 
 [[workflows.workflow]]
-name = "Test Server"
+name = "MCP Server"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx src/test-server.ts"
+args = "npx tsx src/server-fixed.ts"
 waitForPort = 5000
 
 [deployment]
