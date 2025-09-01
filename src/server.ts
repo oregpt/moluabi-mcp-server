@@ -4,7 +4,7 @@ import express, { Request, Response } from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { atxpServer, requirePayment } from '@atxp/server';
+import { atxpServer, requirePayment, atxpAccountId, getATXPConfig } from '@atxp/server';
 import BigNumber from "bignumber.js";
 import dotenv from 'dotenv';
 
@@ -50,11 +50,29 @@ console.log('🔧 Configuring ATXP server with:');
 console.log('  - destination:', PAYMENT_DESTINATION);
 console.log('  - payeeName: MoluAbi MCP Server');
 
+// For now, let's add the static token back with detailed logging to see what's happening
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server',
-  // Let ATXP SDK use OAuth tokens automatically - no static token needed
+  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN,
 }));
+
+// Add logging to track requirePayment calls
+const originalRequirePayment = requirePayment;
+const loggedRequirePayment = async (config: any) => {
+  console.log('🔍 DEBUG: requirePayment called with price:', config.price.toString());
+  console.log('🔍 DEBUG: Current user from atxpAccountId():', atxpAccountId());
+  console.log('🔍 DEBUG: ATXP config exists:', !!getATXPConfig());
+  
+  try {
+    const result = await originalRequirePayment(config);
+    console.log('🔍 DEBUG: requirePayment succeeded');
+    return result;
+  } catch (error) {
+    console.log('🔍 DEBUG: requirePayment failed with error:', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
+};
 
 // Create our transport instance
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -81,7 +99,7 @@ server.tool(
     
     try {
       // Require payment before execution (0.05 USDC for agent creation)
-      await requirePayment({price: BigNumber(0.05)});
+      await loggedRequirePayment({price: BigNumber(0.05)});
       console.log('💰 Payment validated for create_agent');
     } catch (error) {
       console.log('❌ PAYMENT ERROR in create_agent:', error instanceof Error ? error.message : String(error));
@@ -137,7 +155,7 @@ server.tool(
       console.log('💳 Attempting payment charge: $0.001 USDC');
       console.log('💳 Payment destination:', PAYMENT_DESTINATION);
       console.log('🔍 DEBUG: About to call requirePayment - checking what token will be used');
-      await requirePayment({price: BigNumber(0.001)});
+      await loggedRequirePayment({price: BigNumber(0.001)});
       console.log('💰 Payment validated for list_agents');
     } catch (paymentError) {
       console.error('❌ Payment failed for list_agents:', paymentError);
