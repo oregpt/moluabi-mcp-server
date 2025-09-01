@@ -582,20 +582,113 @@ async function main() {
             const toolName = params?.name;
             console.log(`🔧 ATXP tool call: ${toolName}`);
             
-            // Call the ATXP MCP server directly
-            const result = await atxpMcpServer.handleRequest({
-              jsonrpc: "2.0",
-              method: "tools/call",
-              params,
-              id
-            });
-            
-            return res.json(result);
+            // Execute ATXP tools manually since transport is problematic
+            if (toolName && toolName.startsWith('atxp_')) {
+              try {
+                let result;
+                const args = params?.arguments || {};
+                
+                // Map ATXP tool names to their implementations
+                switch (toolName) {
+                  case "atxp_create_agent":
+                    await requirePayment({ price: BigNumber(0.10) });
+                    result = await handleCreateAgent(args);
+                    break;
+                  case "atxp_list_agents":
+                    await requirePayment({ price: BigNumber(0.02) });
+                    result = await handleListAgents(args);
+                    break;
+                  case "atxp_get_agent":
+                    await requirePayment({ price: BigNumber(0.01) });
+                    result = await handleGetAgent(args);
+                    break;
+                  case "atxp_prompt_agent":
+                    await requirePayment({ price: BigNumber(0.05) });
+                    result = await handlePromptAgent(args);
+                    break;
+                  case "atxp_update_agent":
+                    await requirePayment({ price: BigNumber(0.03) });
+                    const agent = await platformClient.updateAgent(args.apiKey, parseInt(args.agentId), {
+                      name: args.name,
+                      description: args.description,
+                      instructions: args.instructions,
+                      type: args.type,
+                      isPublic: args.isPublic,
+                      isShareable: args.isShareable
+                    });
+                    result = { success: true, agent, cost: 0.03, operation: "update_agent" };
+                    break;
+                  case "atxp_delete_agent":
+                    await requirePayment({ price: BigNumber(0.02) });
+                    await platformClient.deleteAgent(args.apiKey, parseInt(args.agentId));
+                    result = { success: true, message: `Agent ${args.agentId} deleted`, cost: 0.02, operation: "delete_agent" };
+                    break;
+                  case "atxp_add_user_to_agent":
+                    await requirePayment({ price: BigNumber(0.01) });
+                    await platformClient.addUserToAgent(args.apiKey, parseInt(args.agentId), args.userId);
+                    result = { success: true, message: `User ${args.userId} added`, cost: 0.01, operation: "add_user_to_agent" };
+                    break;
+                  case "atxp_remove_user_from_agent":
+                    await requirePayment({ price: BigNumber(0.01) });
+                    await platformClient.removeUserFromAgent(args.apiKey, parseInt(args.agentId), args.userId);
+                    result = { success: true, message: `User ${args.userId} removed`, cost: 0.01, operation: "remove_user_from_agent" };
+                    break;
+                  case "atxp_get_usage_report":
+                    await requirePayment({ price: BigNumber(0.01) });
+                    result = await platformClient.getUsageReport(args.apiKey, args.days);
+                    result = { success: true, report: result, cost: 0.01, operation: "get_usage_report" };
+                    break;
+                  case "atxp_get_pricing":
+                    await requirePayment({ price: BigNumber(0.005) });
+                    const pricing = await agentService.getPricing();
+                    result = { success: true, pricing, cost: 0.005, operation: "get_pricing" };
+                    break;
+                  default:
+                    return res.status(400).json({
+                      jsonrpc: "2.0",
+                      error: {
+                        code: -32602,
+                        message: `Unknown ATXP tool: ${toolName}`
+                      },
+                      id
+                    });
+                }
+                
+                return res.json({
+                  jsonrpc: "2.0",
+                  result: {
+                    content: [
+                      {
+                        type: "text",
+                        text: JSON.stringify(result, null, 2)
+                      }
+                    ]
+                  },
+                  id
+                });
+                
+              } catch (error) {
+                console.error(`❌ ATXP tool execution error for ${toolName}:`, error);
+                return res.status(500).json({
+                  jsonrpc: "2.0",
+                  error: {
+                    code: -32603,
+                    message: `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                  },
+                  id
+                });
+              }
+            } else {
+              return res.status(400).json({
+                jsonrpc: "2.0",
+                error: {
+                  code: -32602,
+                  message: `Unknown tool: ${toolName}`
+                },
+                id
+              });
+            }
           }
-          
-          // Handle other MCP methods
-          const result = await atxpMcpServer.handleRequest(req.body);
-          return res.json(result);
           
         } catch (error) {
           console.error('❌ ATXP request error:', error);
@@ -1444,7 +1537,7 @@ async function main() {
             receivedMethod: method,
             methodType: typeof method,
             methodLength: method ? method.length : null,
-            methodCharCodes: method ? method.split('').map(char => char.charCodeAt(0)) : null,
+            methodCharCodes: method ? method.split('').map((char: string) => char.charCodeAt(0)) : null,
             expectedCharCodes: "initialize".split('').map((char: string) => char.charCodeAt(0)),
             strictEquals: method === "initialize",
             trimEquals: method ? method.trim() === "initialize" : false,
