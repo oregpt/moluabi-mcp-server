@@ -112,20 +112,8 @@ server.tool(
     console.log('🛠️ list_agents tool called');
     
     // Require payment before execution
-    try {
-      await requirePayment({price: BigNumber(0.001)});
-      console.log('💰 Payment validated for list_agents');
-    } catch (paymentError) {
-      console.error('❌ Payment failed for list_agents:', paymentError);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Payment failed: ${paymentError instanceof Error ? paymentError.message : 'Payment server error'}. Please check your payment setup.`,
-          },
-        ],
-      };
-    }
+    await requirePayment({price: BigNumber(0.001)});
+    console.log('💰 Payment validated for list_agents');
     
     try {
       const agents = await platformClient.listAgents(args.apiKey);
