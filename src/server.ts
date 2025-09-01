@@ -40,12 +40,10 @@ if (!PAYMENT_DESTINATION) {
 console.log('💰 Payment destination configured:', PAYMENT_DESTINATION.substring(0, 10) + '...');
 
 // Configure our Express application to use the ATXP middleware - EXACT official pattern
-console.log('🔧 Configuring ATXP middleware...');
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server', 
 }));
-console.log('✅ ATXP middleware configured');
 
 // Create our transport instance
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -55,7 +53,6 @@ const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTranspo
 // Define all 10 agent management tools with ATXP payments
 
 // Tool 1: Create Agent - $0.05 USDC
-console.log('🛠️ Registering tool: create_agent');
 server.tool(
   "create_agent",
   "Create a new AI agent with crypto payment",
@@ -104,8 +101,7 @@ server.tool(
   }
 );
 
-// Tool 2: List Agents - $0.001 USDC - SIMPLIFIED FOR TESTING
-console.log('🛠️ Registering tool: list_agents');
+// Tool 2: List Agents - $0.001 USDC
 server.tool(
   "list_agents",
   "List all agents with crypto payment",
@@ -116,17 +112,42 @@ server.tool(
     console.log('🛠️ list_agents tool called');
     
     // Require payment before execution
-    await requirePayment({price: BigNumber(0.001)});
-    console.log('💰 Payment validated for list_agents');
+    try {
+      await requirePayment({price: BigNumber(0.001)});
+      console.log('💰 Payment validated for list_agents');
+    } catch (paymentError) {
+      console.error('❌ Payment failed for list_agents:', paymentError);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Payment failed: ${paymentError instanceof Error ? paymentError.message : 'Payment server error'}. Please check your payment setup.`,
+          },
+        ],
+      };
+    }
     
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Test response - payment processed successfully!`,
-        },
-      ],
-    };
+    try {
+      const agents = await platformClient.listAgents(args.apiKey);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${agents.length} agents. Payment of $0.001 USDC processed.\n\n${JSON.stringify(agents, null, 2)}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to list agents: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+      };
+    }
   }
 );
 
@@ -462,67 +483,28 @@ server.tool(
 
 // Setup routes for the server
 const setupServer = async () => {
-  console.log('🔧 Setting up MCP server...');
   await server.connect(transport);
   console.log('✅ MCP server connected to transport');
-  
-  // Add logging middleware AFTER server setup
-  console.log('🔧 Adding request logging middleware...');
-  app.use((req, res, next) => {
-    console.log(`🌐 INCOMING REQUEST: ${req.method} ${req.path}`);
-    console.log(`🌐 Headers:`, JSON.stringify(req.headers, null, 2));
-    console.log(`🌐 Body:`, JSON.stringify(req.body, null, 2));
-    next();
-  });
-  console.log('✅ Request logging middleware added');
-  
-  // Log all registered tools
-  console.log('🛠️ Registered MCP tools:');
-  // Add tool counting
-  let toolCount = 10; // We have 10 tools
-  console.log('📊 Tool registration complete, total tools:', toolCount);
 };
 
 // Setup the URL endpoint that will handle MCP requests - EXACT official pattern
 app.post('/', async (req: Request, res: Response) => {
-  console.log('🔥🔥🔥 POST HANDLER REACHED! 🔥🔥🔥');
-  console.log('🔥 Method:', req.method);
-  console.log('🔥 URL:', req.url);
-  console.log('🔥 ATXP MCP request received:', JSON.stringify(req.body, null, 2));
-  console.log('🔥 Request headers:', JSON.stringify(req.headers, null, 2));
-  console.log('🔥 Content-Type:', req.get('Content-Type'));
-  console.log('🔥 Authorization:', req.get('Authorization') ? 'Present' : 'Missing');
-  
+  console.log('🔥 ATXP MCP request received:', req.body);
   try {
-      console.log('🔧 Calling transport.handleRequest...');
       await transport.handleRequest(req, res, req.body);
-      console.log('✅ Transport handled request successfully');
   } catch (error) {
-    console.error('❌❌❌ CRITICAL ERROR in transport.handleRequest:', error);
-    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('❌ Error handling MCP request:', error);
     if (!res.headersSent) {
-      console.log('📤 Sending 500 error response');
       res.status(500).json({
         jsonrpc: '2.0',
         error: {
           code: -32603,
           message: 'Internal server error',
-          details: error instanceof Error ? error.message : 'Unknown error'
         },
         id: null,
       });
-    } else {
-      console.log('⚠️ Headers already sent, cannot send error response');
     }
   }
-});
-
-// Add catch-all handler to see what requests we're missing
-app.all('*', (req, res) => {
-  console.log(`🚨 UNHANDLED REQUEST: ${req.method} ${req.path}`);
-  console.log('🚨 Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('🚨 Body:', JSON.stringify(req.body, null, 2));
-  res.status(404).json({ error: 'Route not found', method: req.method, path: req.path });
 });
 
 // Start the server - EXACT official pattern

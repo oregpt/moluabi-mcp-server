@@ -21,9 +21,12 @@ args = "MCP Server"
 name = "MCP Server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx src/server-fixed.ts"
+args = "npx tsx src/server.ts"
 waitForPort = 5000
 
 [deployment]
