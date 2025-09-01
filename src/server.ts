@@ -53,7 +53,7 @@ console.log('  - payeeName: MoluAbi MCP Server');
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server',
-  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN,
+  // Let ATXP SDK use OAuth tokens automatically - no static token needed
 }));
 
 // Create our transport instance
