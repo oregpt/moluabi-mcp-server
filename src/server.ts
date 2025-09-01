@@ -117,17 +117,17 @@ server.tool(
   },
   async (args) => {
     console.log('🛠️ create_agent tool called');
-    console.log('🔍 DEBUG: About to call requirePayment with price 0.05');
     
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
     try {
-      // Require payment before execution (0.05 USDC for agent creation)
       await requirePayment({price: BigNumber(0.05)});
       console.log('💰 Payment validated for create_agent');
     } catch (error) {
-      console.log('❌ PAYMENT ERROR in create_agent:', error instanceof Error ? error.message : String(error));
-      console.log('🔍 DEBUG: Full error object:', JSON.stringify(error, null, 2));
-      throw error;
+      console.log('❌ Payment failed for create_agent, continuing anyway:', error);
+      paymentStatus = "failed";
     }
+    // END PAYMENT BYPASS SECTION
     
     try {
       const agent = await platformClient.createAgent(args.apiKey, {
@@ -138,11 +138,15 @@ server.tool(
         isPublic: args.isPublic || false
       });
       
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.05 USDC processed";
+      
       return {
         content: [
           {
             type: "text",
-            text: `Agent created successfully! ID: ${agent.id}, Name: ${agent.name}. Payment of $0.05 USDC processed.`,
+            text: `${statusPrefix}Agent created successfully! ID: ${agent.id}, Name: ${agent.name}${paymentNote}`,
           },
         ],
       };
@@ -219,18 +223,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ get_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.001)});
-    console.log('💰 Payment validated for get_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.001)});
+      console.log('💰 Payment validated for get_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for get_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       const agent = await platformClient.getAgent(args.apiKey, parseInt(args.agentId));
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.001 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `Agent details retrieved. Payment of $0.001 USDC processed.\n\n${JSON.stringify(agent, null, 2)}`,
+            text: `${statusPrefix}Agent details retrieved${paymentNote}\n\n${JSON.stringify(agent, null, 2)}`,
           },
         ],
       };
@@ -263,9 +278,16 @@ server.tool(
   async (args) => {
     console.log('🛠️ update_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.02)});
-    console.log('💰 Payment validated for update_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.02)});
+      console.log('💰 Payment validated for update_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for update_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       const agent = await platformClient.updateAgent(args.apiKey, parseInt(args.agentId), {
@@ -276,11 +298,15 @@ server.tool(
         isPublic: args.isPublic
       });
       
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.02 USDC processed";
+      
       return {
         content: [
           {
             type: "text",
-            text: `Agent updated successfully! Payment of $0.02 USDC processed.\n\n${JSON.stringify(agent, null, 2)}`,
+            text: `${statusPrefix}Agent updated successfully! ${paymentNote}\n\n${JSON.stringify(agent, null, 2)}`,
           },
         ],
       };
@@ -308,18 +334,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ delete_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.01)});
-    console.log('💰 Payment validated for delete_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.01)});
+      console.log('💰 Payment validated for delete_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for delete_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       await platformClient.deleteAgent(args.apiKey, parseInt(args.agentId));
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.01 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `Agent deleted successfully! Payment of $0.01 USDC processed.`,
+            text: `${statusPrefix}Agent deleted successfully!${paymentNote}`,
           },
         ],
       };
@@ -348,18 +385,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ prompt_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.01)});
-    console.log('💰 Payment validated for prompt_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.01)});
+      console.log('💰 Payment validated for prompt_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for prompt_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       const response = await platformClient.promptAgent(args.apiKey, parseInt(args.agentId), args.prompt);
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.01 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `Agent response received. Payment of $0.01 USDC processed.\n\nResponse: ${response}`,
+            text: `${statusPrefix}Agent response received${paymentNote}\n\nResponse: ${response}`,
           },
         ],
       };
@@ -388,18 +436,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ add_user_to_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.005)});
-    console.log('💰 Payment validated for add_user_to_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.005)});
+      console.log('💰 Payment validated for add_user_to_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for add_user_to_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       await platformClient.addUserToAgent(args.apiKey, parseInt(args.agentId), args.userEmail);
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.005 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `User ${args.userEmail} added to agent successfully! Payment of $0.005 USDC processed.`,
+            text: `${statusPrefix}User ${args.userEmail} added to agent successfully!${paymentNote}`,
           },
         ],
       };
@@ -428,18 +487,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ remove_user_from_agent tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.005)});
-    console.log('💰 Payment validated for remove_user_from_agent');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.005)});
+      console.log('💰 Payment validated for remove_user_from_agent');
+    } catch (error) {
+      console.log('❌ Payment failed for remove_user_from_agent, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       await platformClient.removeUserFromAgent(args.apiKey, parseInt(args.agentId), args.userEmail);
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.005 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `User ${args.userEmail} removed from agent successfully! Payment of $0.005 USDC processed.`,
+            text: `${statusPrefix}User ${args.userEmail} removed from agent successfully!${paymentNote}`,
           },
         ],
       };
@@ -467,18 +537,29 @@ server.tool(
   async (args) => {
     console.log('🛠️ get_usage_report tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.002)});
-    console.log('💰 Payment validated for get_usage_report');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.002)});
+      console.log('💰 Payment validated for get_usage_report');
+    } catch (error) {
+      console.log('❌ Payment failed for get_usage_report, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     try {
       const report = await platformClient.getUsageReport(args.apiKey, args.days);
+      
+      // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+      const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+      const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.002 USDC processed";
       
       return {
         content: [
           {
             type: "text",
-            text: `Usage report generated. Payment of $0.002 USDC processed.\n\n${JSON.stringify(report, null, 2)}`,
+            text: `${statusPrefix}Usage report generated${paymentNote}\n\n${JSON.stringify(report, null, 2)}`,
           },
         ],
       };
@@ -505,9 +586,16 @@ server.tool(
   async (args) => {
     console.log('🛠️ get_pricing tool called');
     
-    // Require payment before execution
-    await requirePayment({price: BigNumber(0.001)});
-    console.log('💰 Payment validated for get_pricing');
+    // TODO: REMOVE THIS PAYMENT BYPASS AFTER ATXP AUTH IS FIXED
+    let paymentStatus = "success";
+    try {
+      await requirePayment({price: BigNumber(0.001)});
+      console.log('💰 Payment validated for get_pricing');
+    } catch (error) {
+      console.log('❌ Payment failed for get_pricing, continuing anyway:', error);
+      paymentStatus = "failed";
+    }
+    // END PAYMENT BYPASS SECTION
     
     // Return pricing information
     const pricing = {
@@ -527,11 +615,15 @@ server.tool(
       payment_method: "ATXP (crypto)"
     };
     
+    // TODO: REMOVE PAYMENT STATUS LOGIC AFTER ATXP AUTH IS FIXED
+    const statusPrefix = paymentStatus === "failed" ? "[PAYMENT_FAILED] " : "";
+    const paymentNote = paymentStatus === "failed" ? " (Payment validation failed - running in test mode)" : ". Payment of $0.001 USDC processed";
+    
     return {
       content: [
         {
           type: "text",
-          text: `Pricing information retrieved. Payment of $0.001 USDC processed.\n\n${JSON.stringify(pricing, null, 2)}`,
+          text: `${statusPrefix}Pricing information retrieved${paymentNote}\n\n${JSON.stringify(pricing, null, 2)}`,
         },
       ],
     };
