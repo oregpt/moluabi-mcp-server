@@ -5,7 +5,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { atxpServer, requirePayment } from '@atxp/server';
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
 import dotenv from 'dotenv';
 
 // Import our platform client
