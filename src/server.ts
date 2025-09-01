@@ -1324,6 +1324,8 @@ async function main() {
           }
           
           console.log('🔑 ATXP Bearer token found, proceeding with tool execution...');
+          console.log('🔍 AUTH COMPLETE - Starting tool execution flow');
+          console.log('🔍 Step 1: Extracting tool parameters...');
           
           // Extract tool information
           const toolName = params?.name || params?.tool;
@@ -1339,6 +1341,8 @@ async function main() {
           }
           
           console.log(`🛠️ Executing tool: ${toolName} with ATXP payment validation`);
+          console.log('🔍 Step 2: Tool name extracted successfully');
+          console.log('🔍 Step 3: About to import tool handlers...');
           
           // Import available tool handlers
           const { 
@@ -1347,6 +1351,8 @@ async function main() {
             handleGetAgent, 
             handlePromptAgent
           } = await import('./tools/agent-tools.js');
+          console.log('🔍 Step 4: Tool handlers imported successfully');
+          console.log('🔍 Step 5: Setting up payment pricing...');
           
           // Define payment amounts for each tool (same as atxp-server.ts)
           const toolPricing: Record<string, string> = {
@@ -1362,8 +1368,12 @@ async function main() {
             "get_pricing": "0.001"
           };
           
+          console.log('🔍 Step 6: Payment pricing configured');
+          console.log('🔍 Step 7: Checking if payment is required for this tool...');
+          
           // Require ATXP payment before tool execution (now with proper middleware context)
           if (toolPricing[toolName]) {
+            console.log('🔍 Step 8: Payment required - entering payment validation...');
             try {
               console.log(`🔍 SERVER.TS: About to call requirePayment for tool: ${toolName}`);
               console.log(`🔍 SERVER.TS: Payment amount: $${toolPricing[toolName]}`);
@@ -1376,6 +1386,7 @@ async function main() {
               console.log(`🔍 SERVER.TS: Calling requirePayment with price: ${paymentAmount}`);
               
               console.log(`🚨🚨🚨 ABOUT TO CALL REQUIRE PAYMENT - THIS SHOULD SHOW UP 🚨🚨🚨`);
+              console.log('🔍 Step 9: Creating payment promise with timeout...');
               
               // Add timeout to prevent hanging
               const paymentPromise = requirePayment({ price: paymentAmount });
@@ -1385,6 +1396,7 @@ async function main() {
               
               await Promise.race([paymentPromise, timeoutPromise]);
               console.log(`🚨🚨🚨 REQUIRE PAYMENT CALL COMPLETED SUCCESSFULLY 🚨🚨🚨`);
+              console.log('🔍 Step 10: Payment validation completed!');
               
               console.log('✅ ATXP payment successful - client wallet charged!');
             } catch (error) {
@@ -1393,11 +1405,15 @@ async function main() {
               console.error('❌ Error name:', err?.name);
               console.error('❌ Error message:', err?.message);
               
+              console.log('🔍 Step 10-ERROR: Payment validation failed, handling error...');
+              
               // Handle timeout scenarios for testing
               if (err?.message === 'Payment validation timeout') {
                 console.warn('⚠️ Payment validation timed out - allowing test access');
+                console.log('🔍 Step 11: Timeout handled, continuing with tool execution...');
                 // Continue with tool execution for testing
               } else {
+                console.log('🔍 Step 11-ERROR: Non-timeout payment error, returning error response...');
                 return res.status(402).json({
                   jsonrpc: "2.0",
                   error: {
@@ -1408,32 +1424,50 @@ async function main() {
                 });
               }
             }
+          } else {
+            console.log('🔍 Step 8-SKIP: No payment required for this tool');
           }
           
+          console.log('🔍 Step 12: Payment validation complete, starting tool execution...');
+          
           // Execute the tool
+          console.log('🔍 Step 13: Starting tool execution...');
           try {
+            console.log('🔍 Step 14: Inside tool execution try block');
             let result;
             const args = params?.arguments || {};
+            console.log('🔍 Step 15: Arguments extracted:', JSON.stringify(args));
             
             // For ATXP, we need to add a dummy API key since the platform client expects one
             // but authentication is handled through ATXP OAuth tokens
+            console.log('🔍 Step 16: Setting up ATXP arguments...');
             const atxpArgs = {
               ...args,
               apiKey: args.apiKey || 'mab_atxp_dummy_key' // ATXP context
             };
+            console.log('🔍 Step 17: ATXP args prepared:', JSON.stringify(atxpArgs));
             
+            console.log('🔍 Step 18: Entering tool switch statement for:', toolName);
             switch (toolName) {
               case "create_agent":
+                console.log('🔍 Step 19: Calling handleCreateAgent...');
                 result = await handleCreateAgent(atxpArgs);
+                console.log('🔍 Step 20: handleCreateAgent completed');
                 break;
               case "list_agents":
+                console.log('🔍 Step 19: Calling handleListAgents...');
                 result = await handleListAgents(atxpArgs);
+                console.log('🔍 Step 20: handleListAgents completed');
                 break;
               case "get_agent":
+                console.log('🔍 Step 19: Calling handleGetAgent...');
                 result = await handleGetAgent(atxpArgs);
+                console.log('🔍 Step 20: handleGetAgent completed');
                 break;
               case "prompt_agent":
+                console.log('🔍 Step 19: Calling handlePromptAgent...');
                 result = await handlePromptAgent(atxpArgs);
+                console.log('🔍 Step 20: handlePromptAgent completed');
                 break;
               case "update_agent":
                 // Use inline logic for update_agent
@@ -1513,7 +1547,9 @@ async function main() {
                 }
                 break;
               case "get_pricing":
+                console.log('🔍 Step 19: Calling agentService.getPricing...');
                 result = await agentService.getPricing();
+                console.log('🔍 Step 20: agentService.getPricing completed');
                 result = {
                   success: true,
                   pricing: result,
@@ -1524,6 +1560,9 @@ async function main() {
               default:
                 throw new Error(`Tool not implemented: ${toolName}`);
             }
+            
+            console.log('🔍 Step 21: Tool execution completed, preparing response...');
+            console.log('🔍 Step 22: Tool result:', JSON.stringify(result));
             
             return res.json({
               jsonrpc: "2.0",
