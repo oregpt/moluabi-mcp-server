@@ -68,8 +68,24 @@ console.log('  - payeeName: MoluAbi MCP Server');
 // Import MemoryOAuthDb from ATXP common package  
 import { MemoryOAuthDb } from '@atxp/common';
 
-// Create memory OAuth database for testing
+// Create memory OAuth database with debug logging
 const memoryOAuthDb = new MemoryOAuthDb();
+
+// Add debug logging to see what methods actually get called
+const originalSaveAccessToken = memoryOAuthDb.saveAccessToken.bind(memoryOAuthDb);
+const originalGetAccessToken = memoryOAuthDb.getAccessToken.bind(memoryOAuthDb);
+
+memoryOAuthDb.saveAccessToken = async (userId, url, token) => {
+  console.log('🟢 DEBUG: saveAccessToken called with:', { userId, url, tokenLength: token.accessToken?.length });
+  return originalSaveAccessToken(userId, url, token);
+};
+
+memoryOAuthDb.getAccessToken = async (userId, url) => {
+  console.log('🔍 DEBUG: getAccessToken called with:', { userId, url });
+  const result = await originalGetAccessToken(userId, url);
+  console.log('🔍 DEBUG: getAccessToken returned:', result ? 'TOKEN_FOUND' : 'NO_TOKEN');
+  return result;
+};
 
 // Configure ATXP server with memory OAuth database
 app.use(atxpServer({ 
