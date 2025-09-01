@@ -29,6 +29,21 @@ const app = express();
 // Configure our Express application to parse JSON bodies
 app.use(express.json());
 
+// Add health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    server: 'MoluAbi ATXP MCP Server',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    payment: {
+      network: 'base',
+      currency: 'USDC',
+      destination: PAYMENT_DESTINATION
+    }
+  });
+});
+
 // Read your wallet address from the environment variable
 const PAYMENT_DESTINATION = process.env.PAYMENT_DESTINATION;
 const ATXP_AUTH_CLIENT_TOKEN = process.env.ATXP_AUTH_CLIENT_TOKEN;
