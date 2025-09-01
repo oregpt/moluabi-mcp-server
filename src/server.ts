@@ -1402,7 +1402,7 @@ async function main() {
             methodType: typeof method,
             methodLength: method ? method.length : null,
             methodCharCodes: method ? method.split('').map(char => char.charCodeAt(0)) : null,
-            expectedCharCodes: Array.from("initialize").map((char: string) => char.charCodeAt(0)),
+            expectedCharCodes: "initialize".split('').map((char: string) => char.charCodeAt(0)),
             strictEquals: method === "initialize",
             trimEquals: method ? method.trim() === "initialize" : false,
             lowerEquals: method ? method.toLowerCase() === "initialize" : false
