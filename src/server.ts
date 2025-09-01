@@ -65,17 +65,17 @@ console.log('🔧 Configuring ATXP server with:');
 console.log('  - destination:', PAYMENT_DESTINATION);
 console.log('  - payeeName: MoluAbi MCP Server');
 
-// Import our SQLite OAuth database
-import { SQLiteOAuthDb } from './sqlite-oauth-db.js';
+// Import MemoryOAuthDb from ATXP common package  
+import { MemoryOAuthDb } from '@atxp/common';
 
-// Create SQLite OAuth database for persistent token storage
-const sqliteOAuthDb = new SQLiteOAuthDb('./oauth-tokens.db', console);
+// Create memory OAuth database for testing
+const memoryOAuthDb = new MemoryOAuthDb();
 
-// Configure ATXP server with SQLite OAuth database (no static token needed)
+// Configure ATXP server with memory OAuth database
 app.use(atxpServer({ 
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server',
-  oAuthDb: sqliteOAuthDb,  // Use SQLite for persistent OAuth tokens
+  oAuthDb: memoryOAuthDb,  // Use official MemoryOAuthDb 
   // No atxpAuthClientToken - let it use OAuth tokens from database
 }));
 
