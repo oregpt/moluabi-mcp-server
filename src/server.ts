@@ -92,7 +92,7 @@ app.use(atxpServer({
   destination: PAYMENT_DESTINATION, 
   payeeName: 'MoluAbi MCP Server',
   oAuthDb: memoryOAuthDb,  // Use official MemoryOAuthDb 
-  // No atxpAuthClientToken - let it use OAuth tokens from database
+  atxpAuthClientToken: ATXP_AUTH_CLIENT_TOKEN, // Need this for payment validation
 }));
 
 
