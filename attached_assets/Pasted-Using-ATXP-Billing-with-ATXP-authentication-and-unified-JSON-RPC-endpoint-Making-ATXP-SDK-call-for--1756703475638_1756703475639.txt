@@ -1,0 +1,39 @@
+Using ATXP Billing with ATXP authentication and unified JSON-RPC endpoint
+Making ATXP SDK call for list_agents
+Server URL: https://moluabi-mcp-server.replit.app
+Tool Name: list_agents
+Tool Arguments: {
+  "apiKey": "mab_cc4d049cbae6dcc3f55cd171fc3e3c29a1601ee132c93b751a26d5105b744ff1"
+}
+[atxp] Initialized in-memory OAuth database (instance: zgfam9b4x)
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+[atxp] No access token found for resource server https://moluabi-mcp-server.replit.app/. Passing no authorization header.
+[atxp] Received 401 Unauthorized status
+🔹 OAuth Flow (SUCCESSFUL):
+[atxp] OAuth authentication required - ATXP client starting oauth flow for resource metadata https://moluabi-mcp-server.replit.app/
+[atxp] Getting client credentials for server: https://auth.atxp.ai (not cached)
+[atxp] Registering client with authorization server for http://localhost:3000/unused-dummy-atxp-callback
+[atxp] Successfully registered client with ID: 6f5fd628415d319f276c9100ba28f7a7
+[atxp] Saving client credentials for server: https://auth.atxp.ai
+[atxp] Saving PKCE values for user: atxp:tRwEwUc5CYhmPPa5NfZgB, state: IFpLKtVVQ6C1ET8cej1RoSX_v0lbbsWlhp00Krf_wrs
+[atxp] ATXP: got response.ok authorization code response - redirect to http://localhost:3000/unused-dummy-atxp-callback?code=db01c783cefc531c9e8673a218e62dcdb0007bbb4910caf93621f967585c39b5&state=IFpLKtVVQ6C1ET8cej1RoSX_v0lbbsWlhp00Krf_wrs
+[atxp] Handling authorization code callback
+[atxp] Saving new access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+🔹 Authenticated Requests (WORKING):
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+ATXP client created for unified JSON-RPC endpoint
+[atxp] Making POST request to https://moluabi-mcp-server.replit.app/
+[atxp] Getting access token for user: atxp:tRwEwUc5CYhmPPa5NfZgB, url: https://moluabi-mcp-server.replit.app/
+🔹 MCP Server Response (THE PROBLEM):
+[atxp] ATXP: error checking for payment requirements in MCP response: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+ATXP call successful for list_agents: {
+  content: [
+    {
+      type: 'text',
+      text: 'Unexpected status code 401 from payment server POST /charge endpoint'
+    }
+  ],
+  isError: true
+}
