@@ -77,10 +77,17 @@ server.tool(
   },
   async (args) => {
     console.log('🛠️ create_agent tool called');
+    console.log('🔍 DEBUG: About to call requirePayment with price 0.05');
     
-    // Require payment before execution (0.05 USDC for agent creation)
-    await requirePayment({price: BigNumber(0.05)});
-    console.log('💰 Payment validated for create_agent');
+    try {
+      // Require payment before execution (0.05 USDC for agent creation)
+      await requirePayment({price: BigNumber(0.05)});
+      console.log('💰 Payment validated for create_agent');
+    } catch (error) {
+      console.log('❌ PAYMENT ERROR in create_agent:', error instanceof Error ? error.message : String(error));
+      console.log('🔍 DEBUG: Full error object:', JSON.stringify(error, null, 2));
+      throw error;
+    }
     
     try {
       const agent = await platformClient.createAgent(args.apiKey, {
@@ -122,10 +129,14 @@ server.tool(
   async (args) => {
     console.log('🛠️ list_agents tool called');
     
+    // Add detailed debugging for authentication flow
+    console.log('🔍 DEBUG: Checking ATXP context and user authentication');
+    
     // Require payment before execution
     try {
       console.log('💳 Attempting payment charge: $0.001 USDC');
       console.log('💳 Payment destination:', PAYMENT_DESTINATION);
+      console.log('🔍 DEBUG: About to call requirePayment - checking what token will be used');
       await requirePayment({price: BigNumber(0.001)});
       console.log('💰 Payment validated for list_agents');
     } catch (paymentError) {
